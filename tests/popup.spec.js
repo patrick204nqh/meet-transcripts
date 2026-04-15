@@ -28,8 +28,14 @@ test.describe('Popup', () => {
     await expect(page.locator('label[for="manual-mode"]')).toContainText('Manual mode');
   });
 
-  test('platform toggles are unchecked by default', async ({ page }) => {
-    await expect(page.locator('#enable-google-meet')).not.toBeChecked();
+  test('Google Meet is enabled by default (mandatory host permission)', async ({ page }) => {
+    // Google Meet is listed in host_permissions (mandatory), so its content script
+    // is registered on install and the toggle reflects "Enabled" on first load.
+    await expect(page.locator('#enable-google-meet')).toBeChecked();
+  });
+
+  test('Teams and Zoom are disabled by default (optional permissions)', async ({ page }) => {
+    // Teams and Zoom use optional_host_permissions — not granted until the user enables them.
     await expect(page.locator('#enable-teams')).not.toBeChecked();
     await expect(page.locator('#enable-zoom')).not.toBeChecked();
   });
