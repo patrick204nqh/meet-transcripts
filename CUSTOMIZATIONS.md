@@ -31,7 +31,9 @@ what must be preserved and what may conflict.
 | File | Change | Reason |
 |------|--------|--------|
 | `extension/manifest.json` | `name` → `meet-transcripts` | Internal identity |
+| `extension/manifest.json` | `version` reset to `1.0.0` | Own versioning line from fork point |
 | `extension/manifest.json` | `description` → internal build copy | Not published to Chrome Web Store |
+| `extension/background.js:456,501` | Download folder renamed `meet-transcripts/` | Remove upstream folder name |
 | `extension/background.js:466` | Transcript footer → points to this repo | Remove upstream Chrome Store link |
 
 ---

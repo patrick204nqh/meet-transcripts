@@ -453,7 +453,7 @@ function downloadTranscript(index, isWebhookEnabled) {
 
                 const prefix = meeting.meetingSoftware ? `${meeting.meetingSoftware} transcript` : "Transcript"
 
-                const fileName = `TranscripTonic/${prefix}-${sanitisedMeetingTitle} at ${formattedTimestamp} on.txt`
+                const fileName = `meet-transcripts/${prefix}-${sanitisedMeetingTitle} at ${formattedTimestamp} on.txt`
 
 
                 // Format transcript and chatMessages content
@@ -498,7 +498,7 @@ function downloadTranscript(index, isWebhookEnabled) {
                             chrome.downloads.download({
                                 // @ts-ignore
                                 url: dataUrl,
-                                filename: "TranscripTonic/Transcript.txt",
+                                filename: "meet-transcripts/Transcript.txt",
                                 conflictAction: "uniquify"
                             })
                             console.log("Invalid file name. Transcript downloaded to TranscripTonic directory with simple file name.")
