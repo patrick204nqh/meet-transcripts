@@ -501,7 +501,7 @@ function downloadTranscript(index, isWebhookEnabled) {
                                 filename: "meet-transcripts/Transcript.txt",
                                 conflictAction: "uniquify"
                             })
-                            console.log("Invalid file name. Transcript downloaded to TranscripTonic directory with simple file name.")
+                            console.log("Invalid file name. Transcript downloaded to meet-transcripts directory with simple file name.")
                             resolve("Transcript downloaded successfully with default file name")
 
                             // Logs anonymous errors to a Google sheet for swift debugging   
