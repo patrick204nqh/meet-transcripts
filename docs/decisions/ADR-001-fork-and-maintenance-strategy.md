@@ -68,6 +68,44 @@ upstream sync PR reviews.
 
 ---
 
+## Customizations applied
+
+The following changes were made on top of upstream as a direct result of this decision.
+Each is tracked in [`CUSTOMIZATIONS.md`](../../CUSTOMIZATIONS.md).
+
+### Telemetry removed
+
+Upstream embeds three Google Apps Script endpoints that send anonymous data to the
+upstream author's infrastructure on every transcript download and on errors:
+
+- Analytics endpoint — POSTs extension version, webhook status, and platform per download
+- Error logging endpoint — POSTs extension version, error code, and message on failures
+
+**Decision:** Remove all three `fetch` calls entirely. No data leaves the browser.
+`logError()` in all content scripts now calls `console.error` locally instead.
+
+### Upstream version check bypassed
+
+`checkExtensionStatus()` fetched a remote JSON from `ejnana.github.io` on every page load.
+If the installed version was below the upstream author's declared `minVersion`, the extension
+set its internal status to 400 and refused to run.
+
+**Decision:** Since this fork resets the version to `1.0.0` (our own versioning line),
+the remote check would immediately disable the extension. `checkExtensionStatus()` now
+always resolves with status 200 without making any network request.
+
+### Extension icon sourced locally
+
+The notification banner icon was loaded from `ejnana.github.io` — an external dependency.
+An `onerror` handler was also added so that if the icon fails to load in an orphaned
+content script context (tab open before extension reload), the banner still displays
+cleanly without a broken image.
+
+**Decision:** Use `chrome.runtime.getURL("icon.png")` to load the icon from the local
+extension bundle. No external image CDN dependency.
+
+---
+
 ## Consequences
 
 **Positive**

@@ -6,7 +6,7 @@ test.describe('Popup', () => {
   });
 
   test('renders the extension title', async ({ page }) => {
-    await expect(page.locator('h1')).toHaveText('TranscripTonic');
+    await expect(page.locator('h1')).toHaveText('meet-transcripts');
   });
 
   test('shows platform toggles for Google Meet, Teams, and Zoom', async ({ page }) => {
@@ -50,5 +50,15 @@ test.describe('Popup', () => {
 
   test('shows link to meetings page', async ({ page }) => {
     await expect(page.locator('a[href="./meetings.html"]')).toBeVisible();
+  });
+
+  test('auto-download is enabled by default', async ({ page }) => {
+    await expect(page.locator('#auto-download-file')).toBeChecked();
+  });
+
+  test('switching to manual mode unchecks auto mode', async ({ page }) => {
+    await page.locator('#manual-mode').check();
+    await expect(page.locator('#manual-mode')).toBeChecked();
+    await expect(page.locator('#auto-mode')).not.toBeChecked();
   });
 });

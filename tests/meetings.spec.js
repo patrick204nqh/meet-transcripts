@@ -6,7 +6,7 @@ test.describe('Meetings page', () => {
   });
 
   test('renders the page title', async ({ page }) => {
-    await expect(page.locator('h1')).toHaveText('TranscripTonic');
+    await expect(page.locator('h1')).toHaveText('meet-transcripts');
   });
 
   test('shows the Last 10 meetings section', async ({ page }) => {
@@ -52,5 +52,19 @@ test.describe('Meetings page', () => {
     const input = page.locator('#webhook-url');
     await input.fill('https://hooks.example.com/test');
     await expect(input).toHaveValue('https://hooks.example.com/test');
+  });
+
+  test('auto-download checkbox is visible', async ({ page }) => {
+    await expect(page.locator('#auto-download-file')).toBeVisible();
+  });
+
+  test('can switch between Simple and Advanced webhook body', async ({ page }) => {
+    await page.locator('#advanced-webhook-body').check();
+    await expect(page.locator('#advanced-webhook-body')).toBeChecked();
+    await expect(page.locator('#simple-webhook-body')).not.toBeChecked();
+
+    await page.locator('#simple-webhook-body').check();
+    await expect(page.locator('#simple-webhook-body')).toBeChecked();
+    await expect(page.locator('#advanced-webhook-body')).not.toBeChecked();
   });
 });
