@@ -458,6 +458,7 @@ function teams() {
     logo.setAttribute("height", "32px")
     logo.setAttribute("width", "32px")
     logo.style.cssText = "border-radius: 4px"
+    logo.onerror = () => { logo.style.display = "none" }
     text.style.cssText = "margin-top: 1rem; margin-bottom:1rem; font-size: medium"
 
     if (extensionStatusJSON.status === 200) {

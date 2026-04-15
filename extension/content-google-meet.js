@@ -610,6 +610,7 @@ function showNotification(extensionStatusJSON) {
   logo.setAttribute("height", "32px")
   logo.setAttribute("width", "32px")
   logo.style.cssText = "border-radius: 4px"
+  logo.onerror = () => { logo.style.display = "none" }
 
   // Remove banner after 5s
   setTimeout(() => {
