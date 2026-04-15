@@ -1,83 +1,109 @@
-# TranscripTonic
-Simple Google Meet transcripts. Private and open source. 
-> Teams and Zoom transcripts in beta. <a href="https://github.com/vivek-nexus/transcriptonic/wiki/Zoom-and-Teams-beta-testing" target="_blank">Learn
-          more</a>.
+# TranscripTonic (internal fork)
 
-![marquee-large](/assets/marquee-large.png)
+A self-maintained fork of [vivek-nexus/transcriptonic](https://github.com/vivek-nexus/transcriptonic) —
+a Chrome extension that captures Google Meet transcripts locally and optionally posts them to a webhook.
 
-Extension status: 🟢 OPERATIONAL (v3.3.1)
+This fork exists for internal use. It is not published to the Chrome Web Store.
+See [ADR-001](docs/adr/ADR-001-fork-and-maintenance-strategy.md) for the full rationale.
 
-<br />
-<br />
+---
 
+## Why a fork?
 
+The upstream extension is well-built and actively maintained, but ships as a public Chrome Web Store
+listing with telemetry tied to the upstream author's infrastructure. We wanted:
 
-# Demo
-View video on [YouTube](https://www.youtube.com/watch?v=ARL6HbkakX4)
+- **No Chrome Web Store dependency** — control over when and how the extension is distributed
+- **Audit of telemetry** — ability to review, replace, or remove analytics and error-logging endpoints
+- **Targeted customizations** — apply changes specific to our workflow without waiting for upstream acceptance
+- **Predictable update cadence** — absorb upstream changes on a quarterly schedule rather than through
+  silent Chrome auto-updates
 
-![demo](/assets/demo.gif)
+We still benefit from all the upstream author's work maintaining compatibility with Google Meet's
+ever-changing DOM. We just take those updates on our own terms.
 
+---
 
-<br />
-<br />
+## What it does
 
+TranscripTonic runs in the background during Google Meet calls. It reads the live captions and
+assembles a transcript locally in the browser. At the end of each meeting:
 
-# Installation
-<a href="https://chromewebstore.google.com/detail/ciepnfnceimjehngolkijpnbappkkiag" target="_blank">
-    <img src="https://developer.chrome.com/static/docs/webstore/branding/image/iNEddTyWiMfLSwFD6qGq.png" />
-</a>
+- Downloads the transcript as a `.txt` file
+- Optionally POSTs it to a configured webhook (n8n, Google Docs, or any HTTP endpoint)
 
-<br />
-<br />
+All processing stays in the browser. Nothing leaves the device unless you explicitly configure
+a webhook.
 
-# How to use TranscripTonic
-![screenshot-2](/assets/screenshot-2.png)
-TranscripTonic has two modes of operation.
+Zoom and Teams are supported in beta — see the upstream
+[wiki](https://github.com/vivek-nexus/transcriptonic/wiki/Zoom-and-Teams-beta-testing) for details.
 
-**In both modes, transcript will be downloaded as a text file at the end of each meeting.**
+---
 
-- **Auto mode:** Automatically records transcripts for all meetings
-- **Manual mode:** Switch on TranscripTonic by clicking on captions icon in Google Meet (CC icon)
+## Installation (unpacked extension)
 
+This fork is installed in Chrome as an unpacked extension. It requires **developer mode** enabled.
 
-<br />
-<br />
+1. Clone or download this repository
+2. Open Chrome and go to `chrome://extensions`
+3. Enable **Developer mode** (toggle in the top-right corner)
+4. Click **Load unpacked**
+5. Select the `extension/` folder from this repository
+6. The TranscripTonic icon will appear in your Chrome toolbar
 
-# Integrating TranscripTonic with other tools using webhooks
-You can integrate TranscripTonic with any tool that accepts data from a webhook. Refer the "Set up webhooks" page in the extension for details about the webhook body.
-- [Google Docs integration guide](https://github.com/vivek-nexus/transcriptonic/wiki/Google-Docs-integration-guide?utm_source=readme)
-- [n8n integration guide](https://github.com/vivek-nexus/transcriptonic/wiki/n8n-integration-guide?utm_source=readme)
+To update to a newer version: pull the latest `main`, then click the refresh icon on the extension card
+at `chrome://extensions`.
 
-<br />
-<br />
+---
 
-# FAQs
+## Usage
 
-**1. Can I change the language of the transcript?**
+The extension has two modes:
 
-Yes. TranscripTonic picks up the output of Google Meet captions. Google Meet captions supports variety of languages that you can choose from. Click the settings icon when captions start showing and change the language.
+- **Auto mode** — records transcripts for every meeting automatically
+- **Manual mode** — you toggle it on/off by clicking the CC (captions) icon inside Google Meet
 
-**2. I did not get any transcript at the end of the meeting.**
+At the end of a meeting the transcript is downloaded as a `.txt` file. Open the extension popup
+to view the last 10 meetings or configure a webhook.
 
-This could happen when:
-1. New errors caused by Google Meet updates
-2. Any unexpected events like network drop, browser crashes etc.
+---
 
-When this happens, it might be possible to recover the transcript, but recovery should be done before starting another meeting.
-- Open the extension and click on "last 10 meetings". Click on "Recover last meeting" button present after the table.
-- TranscripTonic will also attempt to auto-recover any missed transcripts, just before a new meeting starts.
+## Webhook integration
 
-<br />
-<br />
+You can pipe transcripts to any tool that accepts a webhook POST. Configure the webhook URL in the
+extension's "Set up webhooks" page. Refer to the upstream wiki for integration guides:
 
-# Privacy policy
-TranscripTonic Chrome extension does not collect any information from users in any manner, except anonymous errors and transcript download timestamp. All processing/transcript storage happens within the user's Chrome browser and does not leave the device, unless you configure a webhook and choose to post data to your webhook URL.
+- [Google Docs integration](https://github.com/vivek-nexus/transcriptonic/wiki/Google-Docs-integration-guide)
+- [n8n integration](https://github.com/vivek-nexus/transcriptonic/wiki/n8n-integration-guide)
 
-<br />
-<br />
+---
 
-# Notice
-The transcript may not always be accurate and is only intended to aid in improving productivity. It is the responsibility of the user to ensure they comply with any applicable laws/rules.
+## Fork maintenance
 
-<br />
-<br />
+Upstream changes are reviewed and merged on a **quarterly basis**.
+
+| Branch | Purpose |
+|--------|---------|
+| `main` | Our stable version — install from here |
+| `upstream-sync` | Automated mirror of upstream `main`, never edited directly |
+
+A GitHub Actions workflow runs on the 1st of January, April, July, and October. If upstream has
+new commits it opens a PR from `upstream-sync` into `main` for manual review. The reviewer checks
+for conflicts with our customizations (documented in [`CUSTOMIZATIONS.md`](CUSTOMIZATIONS.md))
+before merging.
+
+To trigger a sync manually: go to **Actions → Sync upstream → Run workflow**.
+
+---
+
+## Docs
+
+- [Architecture](docs/architecture.md) — extension internals and fork maintenance flow
+- [ADR-001](docs/adr/ADR-001-fork-and-maintenance-strategy.md) — decision record for this fork
+- [CUSTOMIZATIONS.md](CUSTOMIZATIONS.md) — all changes made relative to upstream
+
+---
+
+## License
+
+MIT — same as upstream. See [LICENSE](LICENSE).
