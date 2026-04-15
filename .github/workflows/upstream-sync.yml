@@ -1,0 +1,59 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '0 0 1 */3 *' # quarterly, 1st of every 3rd month
+  workflow_dispatch:       # allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/vivek-nexus/transcriptonic.git
+          git fetch upstream
+
+      - name: Update upstream-sync branch
+        run: |
+          git checkout upstream-sync
+          git reset --hard upstream/main
+          git push origin upstream-sync --force
+
+      - name: Check for differences
+        id: diff
+        run: |
+          git checkout main
+          COUNT=$(git log main..upstream-sync --oneline | wc -l | tr -d ' ')
+          echo "commit_count=$COUNT" >> $GITHUB_OUTPUT
+
+      - name: Create PR if upstream has new commits
+        if: steps.diff.outputs.commit_count != '0'
+        run: |
+          gh pr create \
+            --base main \
+            --head upstream-sync \
+            --title "chore: sync upstream changes ($(date +'%Y-%m'))" \
+            --body "## Upstream sync
+
+          Automated sync from [vivek-nexus/transcriptonic](https://github.com/vivek-nexus/transcriptonic).
+
+          **${{ steps.diff.outputs.commit_count }} new upstream commit(s)** since last sync.
+
+          ### Review checklist
+          - [ ] Review each upstream commit for relevance
+          - [ ] Resolve any conflicts with local customizations
+          - [ ] Verify nothing breaks our custom features
+          " \
+          --label "upstream-sync" || echo "PR already exists, skipping"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
