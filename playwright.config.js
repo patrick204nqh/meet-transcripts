@@ -3,12 +3,14 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  // Extensions require a headed browser — use --headed flag or run via `npm test`
+  // Chrome extensions require a headed browser — headless mode cannot load extensions.
   // For CI without a display server, wrap with: xvfb-run npm test
   use: {
-    // Individual tests configure their own context via the extension fixture
     headless: false,
+    trace: 'on-first-retry',
   },
-  // Run tests sequentially so they share the same browser context setup
+  // Sequential workers: extension tests share a persistent browser context per test
   workers: 1,
+  retries: process.env.CI ? 2 : 0,
+  reporter: process.env.CI ? 'github' : 'list',
 });

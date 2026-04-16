@@ -14,8 +14,6 @@ const TELEMETRY_PATTERNS = [
 const SOURCE_FILES = [
   'background.js',
   'content-google-meet.js',
-  'content-zoom.js',
-  'content-teams.js',
 ];
 
 test.describe('Security', () => {
@@ -35,7 +33,7 @@ test.describe('Security', () => {
     });
 
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
-    await page.waitForTimeout(1000);
+    await expect(page.getByRole('heading', { name: 'meet-transcripts' })).toBeVisible();
 
     expect(externalRequests, `unexpected external requests: ${externalRequests.join(', ')}`).toHaveLength(0);
   });
@@ -50,7 +48,7 @@ test.describe('Security', () => {
     });
 
     await page.goto(`chrome-extension://${extensionId}/meetings.html`);
-    await page.waitForTimeout(1000);
+    await expect(page.getByRole('heading', { name: 'meet-transcripts' })).toBeVisible();
 
     expect(externalRequests, `unexpected external requests: ${externalRequests.join(', ')}`).toHaveLength(0);
   });
@@ -72,7 +70,7 @@ test.describe('Security', () => {
   test('manifest declares only expected permissions', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'));
     const declared = manifest.permissions ?? [];
-    const allowed = ['storage', 'downloads', 'scripting', 'declarativeNetRequestWithHostAccess', 'notifications'];
+    const allowed = ['storage', 'downloads', 'scripting', 'notifications'];
 
     for (const perm of declared) {
       expect(allowed, `unexpected permission declared: ${perm}`).toContain(perm);
@@ -87,6 +85,23 @@ test.describe('Security', () => {
     for (const perm of hostPerms) {
       expect(allowed, `unexpected host_permission: ${perm}`).toContain(perm);
     }
+  });
+
+  test('manifest optional_host_permissions contain no Zoom or Teams domains', () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'));
+    const optionalHostPerms = manifest.optional_host_permissions ?? [];
+    const forbidden = ['zoom.us', 'teams.live.com', 'teams.microsoft.com'];
+
+    for (const perm of optionalHostPerms) {
+      for (const domain of forbidden) {
+        expect(perm, `optional_host_permissions must not include ${domain}`).not.toContain(domain);
+      }
+    }
+  });
+
+  test('manifest has no declarative_net_request block', () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'));
+    expect(manifest.declarative_net_request).toBeUndefined();
   });
 
 });

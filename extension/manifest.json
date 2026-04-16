@@ -21,9 +21,6 @@
   "optional_permissions": [
     "notifications"
   ],
-  "optional_host_permissions": [
-    "*://*/*"
-  ],
   "background": {
     "service_worker": "background.js"
   }

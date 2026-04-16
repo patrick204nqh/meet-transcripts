@@ -25,7 +25,11 @@ test.describe('Meetings page', () => {
     await expect(page.locator('#recover-last-meeting')).toBeVisible();
   });
 
-  test('shows the webhooks configuration section', async ({ page }) => {
+  test('shows the webhooks section heading', async ({ page }) => {
+    await expect(page.locator('#webhooks h2')).toHaveText('Webhooks');
+  });
+
+  test('shows the webhook configuration form', async ({ page }) => {
     await expect(page.locator('#webhooks')).toBeVisible();
     await expect(page.locator('#webhook-url')).toBeVisible();
     await expect(page.locator('#save-webhook')).toBeVisible();
@@ -54,7 +58,9 @@ test.describe('Meetings page', () => {
     await expect(input).toHaveValue('https://hooks.example.com/test');
   });
 
-  test('auto-download checkbox is visible', async ({ page }) => {
+  test('auto-download checkbox is visible when auto-post webhook is enabled', async ({ page }) => {
+    // auto-post-webhook is checked by default, which makes auto-download-file visible
+    await expect(page.locator('#auto-post-webhook')).toBeChecked();
     await expect(page.locator('#auto-download-file')).toBeVisible();
   });
 
