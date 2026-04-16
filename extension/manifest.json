@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "meet-transcripts",
   "version": "1.0.0",
-  "description": "meet-transcripts — internal build. Google Meet transcript capture.",
+  "description": "meet-transcripts — Google Meet transcript capture.",
   "action": {
     "default_icon": "icon.png",
     "default_popup": "popup.html"
@@ -13,8 +13,7 @@
   "permissions": [
     "storage",
     "downloads",
-    "scripting",
-    "declarativeNetRequestWithHostAccess"
+    "scripting"
   ],
   "host_permissions": [
     "https://meet.google.com/*"
@@ -23,21 +22,9 @@
     "notifications"
   ],
   "optional_host_permissions": [
-    "*://*/*",
-    "https://*.zoom.us/",
-    "https://teams.live.com/*",
-    "https://teams.microsoft.com/*"
+    "*://*/*"
   ],
   "background": {
     "service_worker": "background.js"
-  },
-  "declarative_net_request": {
-    "rule_resources": [
-      {
-        "id": "ruleset_1",
-        "enabled": false,
-        "path": "rules.json"
-      }
-    ]
   }
 }

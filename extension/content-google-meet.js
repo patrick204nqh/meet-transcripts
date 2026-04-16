@@ -7,10 +7,10 @@
 /** @type {ExtensionStatusJSON} */
 const extensionStatusJSON_bug = {
   "status": 400,
-  "message": `<strong>TranscripTonic encountered a new error</strong> <br /> Please report it <a href="https://github.com/vivek-nexus/transcriptonic/issues" target="_blank">here</a>.`
+  "message": `<strong>meet-transcripts encountered a new error</strong> <br /> Please report it <a href="https://github.com/patrick204nqh/meet-transcripts/issues" target="_blank">here</a>.`
 }
 
-const reportErrorMessage = "There is a bug in TranscripTonic. Please report it at https://github.com/vivek-nexus/transcriptonic/issues"
+const reportErrorMessage = "There is a bug in meet-transcripts. Please report it at https://github.com/patrick204nqh/meet-transcripts/issues"
 /** @type {MutationObserverInit} */
 const mutationConfig = { childList: true, attributes: true, subtree: true, characterData: true }
 
@@ -194,7 +194,7 @@ function meetingRoutines(uiType) {
           chrome.storage.sync.get(["operationMode"], function (resultSyncUntyped) {
             const resultSync = /** @type {ResultSync} */ (resultSyncUntyped)
             if (resultSync.operationMode === "manual") {
-              showNotification({ status: 400, message: "<strong>TranscripTonic is not running</strong> <br /> Turn on captions using the CC icon, if needed" })
+              showNotification({ status: 400, message: "<strong>meet-transcripts is not running</strong> <br /> Turn on captions using the CC icon, if needed" })
             }
             else {
               showNotification(extensionStatusJSON)
@@ -514,11 +514,11 @@ function pulseStatus() {
   `
 
   /** @type {HTMLDivElement | null}*/
-  let activityStatus = document.querySelector(`#transcriptonic-status`)
+  let activityStatus = document.querySelector(`#meet-transcripts-status`)
   if (!activityStatus) {
     let html = document.querySelector("html")
     activityStatus = document.createElement("div")
-    activityStatus.setAttribute("id", "transcriptonic-status")
+    activityStatus.setAttribute("id", "meet-transcripts-status")
     activityStatus.style.cssText = `background-color: #2A9ACA; ${statusActivityCSS}`
     html?.appendChild(activityStatus)
   }
@@ -539,7 +539,7 @@ function updateMeetingTitle() {
   waitForElement(".u6vdEc").then((element) => {
     const meetingTitleElement = /** @type {HTMLDivElement} */ (element)
     meetingTitleElement?.setAttribute("contenteditable", "true")
-    meetingTitleElement.title = "Edit meeting title for TranscripTonic"
+    meetingTitleElement.title = "Edit meeting title for meet-transcripts"
     meetingTitleElement.style.cssText = `text-decoration: underline white; text-underline-offset: 4px;`
 
     meetingTitleElement?.addEventListener("input", handleMeetingTitleElementChange)
@@ -621,46 +621,6 @@ function showNotification(extensionStatusJSON) {
     obj.style.cssText = `color: #2A9ACA; ${commonCSS}`
     text.innerHTML = extensionStatusJSON.message
 
-    // Add beta message
-    if (extensionStatusJSON.showBetaMessage) {
-      /** @type {ExtensionMessage} */
-      const messageTeams = {
-        type: "get_platform_status",
-        platform: "teams"
-      }
-      /** @type {ExtensionMessage} */
-      const messageZoom = {
-        type: "get_platform_status",
-        platform: "zoom"
-      }
-
-      chrome.runtime.sendMessage(messageTeams, (responseUntyped) => {
-        const response = /** @type {ExtensionResponse} */ (responseUntyped)
-        const isTeamsEnabled = (response.success) && (response.message === "Enabled")
-
-        chrome.runtime.sendMessage(messageZoom, (responseUntyped) => {
-          const response = /** @type {ExtensionResponse} */ (responseUntyped)
-          const isZoomEnabled = (response.success) && (response.message === "Enabled")
-
-          if (!isTeamsEnabled && !isZoomEnabled) {
-            text.innerHTML += `<br/><br/> <b style="color:orange;">Teams and Zoom transcripts are in beta. <u>Click to open popup and enable.</u></b>`
-            obj.style.cssText += `cursor: pointer;`
-
-            text.addEventListener("click", () => {
-              /** @type {ExtensionMessage} */
-              const message = {
-                type: "open_popup",
-              }
-              chrome.runtime.sendMessage(message, function (responseUntyped) {
-                const response = /** @type {ExtensionResponse} */ (responseUntyped)
-              })
-            })
-          }
-        })
-
-
-      })
-    }
   }
   else {
     obj.style.cssText = `color: orange; ${commonCSS}`

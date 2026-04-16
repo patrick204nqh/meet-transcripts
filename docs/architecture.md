@@ -1,14 +1,13 @@
 # Architecture
 
-This document describes the architecture of the meet-transcripts Chrome extension
-(a fork of TranscripTonic) and how the fork itself is maintained.
+This document describes the architecture of the meet-transcripts Chrome extension.
 
 ---
 
 ## Extension architecture
 
 meet-transcripts is a **Manifest v3 Chrome extension** composed of three layers:
-a background service worker, platform-specific content scripts, and a UI layer
+a background service worker, a content script for Google Meet, and a UI layer
 (popup + meetings page).
 
 ```mermaid
@@ -17,14 +16,12 @@ graph TD
         subgraph Extension["meet-transcripts Extension"]
             BG["Background Service Worker\nbackground.js\n─────────────────\nMeeting lifecycle\nWebhook dispatch\nFile download\nStorage management"]
 
-            subgraph ContentScripts["Content Scripts (injected per platform)"]
-                GM["content-google-meet.js\nGoogle Meet capture"]
-                ZM["content-zoom.js\nZoom capture (beta)"]
-                TE["content-teams.js\nTeams capture (beta)"]
+            subgraph ContentScripts["Content Scripts"]
+                GM["content-google-meet.js\nGoogle Meet caption capture"]
             end
 
             subgraph UI["Extension UI"]
-                POP["popup.html / popup.js\nStatus · Mode toggle · Meeting list"]
+                POP["popup.html / popup.js\nMode toggle · Meeting list link"]
                 MTG["meetings.html / meetings.js\nWebhook config · Meeting history"]
             end
         end
@@ -37,30 +34,21 @@ graph TD
 
     subgraph MeetingPlatforms["Meeting Platforms"]
         GMeet["meet.google.com"]
-        Zoom["*.zoom.us"]
-        Teams["teams.microsoft.com\nteams.live.com"]
     end
 
     subgraph External["External (configurable)"]
-        WH["User webhook\ne.g. n8n, Google Apps Script"]
-        STATUS["Status endpoint\nMinimum version check"]
+        WH["User webhook\nany HTTP endpoint"]
     end
 
     GMeet -->|DOM events| GM
-    Zoom -->|DOM events| ZM
-    Teams -->|DOM events| TE
 
     GM -->|Transcript chunks| BG
-    ZM -->|Transcript chunks| BG
-    TE -->|Transcript chunks| BG
 
     BG <-->|Read / write| SYNC
     BG <-->|Read / write| LOCAL
 
     BG -->|POST transcript| WH
     BG -->|Download .txt| Chrome
-
-    GM -->|Version check on load| STATUS
 
     POP <-->|chrome.runtime messages| BG
     MTG <-->|chrome.runtime messages| BG
@@ -104,9 +92,6 @@ erDiagram
         string operationMode "auto | manual"
         bool autoDownloadFileAfterMeeting
         bool autoPostWebhookAfterMeeting
-        bool wantGoogleMeet
-        bool wantZoom
-        bool wantTeams
         string webhookUrl
         string webhookBodyType "simple | advanced"
     }
@@ -118,29 +103,12 @@ erDiagram
 
     MEETING {
         string title
-        string platform "Google Meet | Zoom | Teams"
+        string platform "Google Meet"
         string timestamp
         string transcript
     }
 
     LOCAL_STORAGE ||--o{ MEETING : "stores up to 10"
-```
-
----
-
-## Fork maintenance flow
-
-```mermaid
-flowchart LR
-    UP["upstream\nvivek-nexus/transcriptonic\nmain"]
-    US["upstream-sync branch\n(this repo)"]
-    MA["main branch\n(this repo)\nour stable version"]
-
-    UP -->|"CI: quarterly\ngit reset --hard"| US
-    US -->|"CI: opens PR\nif new commits exist"| PR["Pull Request\nupstream-sync → main"]
-    PR -->|"Manual review\nresolve conflicts\npreserve customizations"| MA
-
-    MA -->|"Manual install\nunpacked extension"| DEV["Developer Chrome\n(sideloaded)"]
 ```
 
 ---
@@ -152,11 +120,7 @@ flowchart LR
 | `extension/manifest.json` | Extension metadata, permissions, host matches |
 | `extension/background.js` | Service worker — central orchestrator |
 | `extension/content-google-meet.js` | Google Meet DOM observer and transcript capture |
-| `extension/content-zoom.js` | Zoom capture (beta) |
-| `extension/content-teams.js` | Teams capture (beta) |
 | `extension/popup.html/js` | Extension popup UI |
 | `extension/meetings.html/js` | Meeting history and webhook configuration UI |
 | `types/index.js` | JSDoc type definitions |
-| `.github/workflows/upstream-sync.yml` | Quarterly upstream sync CI |
-| `CUSTOMIZATIONS.md` | Diff log: what we changed from upstream |
 | `docs/decisions/` | Architecture decision records |

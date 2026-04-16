@@ -1,18 +1,17 @@
-# ADR-001: Fork TranscripTonic as a self-maintained internal distribution
+# ADR-001: Internal Chrome extension for Google Meet transcript capture
 
 **Date:** 2026-04-15
-**Status:** Accepted
+**Status:** Accepted (amended 2026-04-17)
 
 ---
 
 ## Context
 
-[TranscripTonic](https://github.com/vivek-nexus/transcriptonic) is an open-source Chrome
-extension that captures Google Meet transcripts locally and optionally posts them to a webhook.
-It is actively maintained by its author but published as a public Chrome Web Store extension
-with telemetry that phones home to the author's infrastructure.
+This project originated as a fork of [vivek-nexus/transcriptonic](https://github.com/vivek-nexus/transcriptonic),
+an open-source Chrome extension that captures Google Meet transcripts locally and optionally posts them to a webhook.
 
-Our team uses Google Meet heavily and wanted transcript capture with:
+The fork was taken because the upstream extension is published as a public Chrome Web Store extension
+with telemetry that phones home to the author's infrastructure. We wanted:
 
 - **No dependency on a third-party Chrome Web Store listing** — we cannot rely on an external
   party's publishing cadence or account stability for an internal tool.
@@ -20,89 +19,47 @@ Our team uses Google Meet heavily and wanted transcript capture with:
   to Google Apps Script endpoints owned by the upstream author. For a security-conscious
   internal deployment we want to audit, replace, or disable those calls.
 - **Ability to apply targeted patches** — UI tweaks, default setting changes, or integration
-  hooks specific to our workflow, without waiting for upstream acceptance.
-- **Predictable update cadence** — upstream ships when it ships. We want to absorb updates on
-  our own schedule (quarterly review) rather than having the extension silently updated through
-  the Chrome Web Store auto-update mechanism.
-
-At the same time, we do not want to fully maintain the extension ourselves. The upstream author
-does the heavy lifting of keeping up with Google Meet DOM changes. We want to track those
-changes and selectively adopt them.
+  hooks specific to our workflow.
 
 ---
 
-## Decision
+## Decision (amended 2026-04-17)
 
-We fork `vivek-nexus/transcriptonic` into this repository and maintain it as a
-**self-hosted, sideloaded Chrome extension** distributed internally.
+**meet-transcripts is now independently maintained.** The fork relationship with
+`vivek-nexus/transcriptonic` has been severed. This is our product.
 
-### Branching strategy
+The following changes were made as part of the pivot:
 
-| Branch | Purpose |
-|--------|---------|
-| `main` | Our stable custom version — the authoritative branch |
-| `upstream-sync` | Automated mirror of `upstream/main`, never edited directly |
+- Removed Zoom and Microsoft Teams support — Google Meet only.
+- Removed upstream sync CI (`.github/workflows/upstream-sync.yml`).
+- Removed `CUSTOMIZATIONS.md` — no longer needed without an upstream merge process.
+- Removed n8n-specific integration copy — generic webhook support remains.
+- Removed all upstream branding (TranscripTonic, vivek-nexus links).
 
-### Upstream sync process
-
-A GitHub Actions workflow runs **quarterly** (1st of Jan, Apr, Jul, Oct):
-
-1. Force-pushes `upstream-sync` to match `upstream/main`
-2. If new commits exist, opens a PR: `upstream-sync` → `main`
-3. A human reviews the PR, resolves conflicts with our customizations, and merges
-
-This gives us full visibility into every upstream change before it reaches our
-deployment.
-
-### Distribution
-
-The extension is installed as an **unpacked extension** in Chrome developer mode.
-We do not publish to the Chrome Web Store. Distribution is managed manually
-(or via internal tooling) by sharing the `extension/` directory or a packaged `.zip`.
-
-### Customizations
-
-All changes from upstream are documented in [`CUSTOMIZATIONS.md`](../../CUSTOMIZATIONS.md)
-at the repo root. Every item in that file is a reminder of what to preserve during
-upstream sync PR reviews.
+The extension is still installed as an **unpacked extension** in Chrome developer mode.
+We do not publish to the Chrome Web Store. Distribution is managed manually by sharing
+the `extension/` directory or a packaged `.zip`.
 
 ---
 
-## Customizations applied
-
-The following changes were made on top of upstream as a direct result of this decision.
-Each is tracked in [`CUSTOMIZATIONS.md`](../../CUSTOMIZATIONS.md).
+## Customizations applied (from original fork)
 
 ### Telemetry removed
 
-Upstream embeds three Google Apps Script endpoints that send anonymous data to the
-upstream author's infrastructure on every transcript download and on errors:
-
-- Analytics endpoint — POSTs extension version, webhook status, and platform per download
-- Error logging endpoint — POSTs extension version, error code, and message on failures
-
-**Decision:** Remove all three `fetch` calls entirely. No data leaves the browser.
-`logError()` in all content scripts now calls `console.error` locally instead.
+Upstream embeds Google Apps Script endpoints that send anonymous data to the upstream author's
+infrastructure on every transcript download and on errors. All `fetch` calls have been removed.
+No data leaves the browser. `logError()` in content scripts calls `console.error` locally instead.
 
 ### Upstream version check bypassed
 
 `checkExtensionStatus()` fetched a remote JSON from `ejnana.github.io` on every page load.
 If the installed version was below the upstream author's declared `minVersion`, the extension
-set its internal status to 400 and refused to run.
-
-**Decision:** Since this fork resets the version to `1.0.0` (our own versioning line),
-the remote check would immediately disable the extension. `checkExtensionStatus()` now
-always resolves with status 200 without making any network request.
+refused to run. This check now always resolves with status 200 without making any network request.
 
 ### Extension icon sourced locally
 
-The notification banner icon was loaded from `ejnana.github.io` — an external dependency.
-An `onerror` handler was also added so that if the icon fails to load in an orphaned
-content script context (tab open before extension reload), the banner still displays
-cleanly without a broken image.
-
-**Decision:** Use `chrome.runtime.getURL("icon.png")` to load the icon from the local
-extension bundle. No external image CDN dependency.
+The notification banner icon was loaded from `ejnana.github.io` — an external CDN dependency.
+Changed to use `chrome.runtime.getURL("icon.png")` from the local extension bundle.
 
 ---
 
@@ -111,21 +68,17 @@ extension bundle. No external image CDN dependency.
 **Positive**
 
 - No external dependency on Chrome Web Store availability or the upstream author's account
-- Full audit trail of every change we apply on top of upstream
-- Telemetry endpoints are under our control to replace or remove
-- Quarterly review cadence matches our low-activity maintenance expectation
+- No telemetry — no data leaves the device
+- Simplified codebase — Google Meet only, no Zoom/Teams complexity
+- No quarterly upstream sync burden
 
 **Negative / trade-offs**
 
-- Sideloaded extensions require developer mode enabled in Chrome — a minor friction for
-  non-technical users
-- We carry the burden of merge conflict resolution during quarterly syncs, especially if
-  upstream touches the same files we customized
-- No automatic Chrome updates — we must manually push new versions to users after merging
-  an upstream sync
+- Sideloaded extensions require developer mode enabled in Chrome — minor friction for non-technical users
+- We are now fully responsible for keeping up with Google Meet DOM changes
+- No automatic Chrome updates — must manually distribute new versions
 
 **Risks**
 
-- If upstream significantly refactors the extension, a quarterly sync PR could be large.
-  Mitigation: the diff is always scoped to `upstream-sync` → `main`, so the review surface
-  is explicit and bounded.
+- Google Meet DOM changes can silently break caption capture. Mitigation: test after Google Meet
+  UI updates; the capture logic is isolated in `content-google-meet.js`.
