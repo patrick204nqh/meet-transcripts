@@ -224,13 +224,13 @@ function loadMeetings() {
                             () => {
                                 switch (meeting.webhookPostStatus) {
                                     case "successful":
-                                        return `<span class="status-success">Successful</span>`
+                                        return `<span class="badge status-success">Successful</span>`
                                     case "failed":
-                                        return `<span class="status-failed">Failed</span>`
+                                        return `<span class="badge status-failed">Failed</span>`
                                     case "new":
-                                        return `<span class="status-new">New</span>`
+                                        return `<span class="badge status-new">New</span>`
                                     default:
-                                        return `<span class="status-new">Unknown</span>`
+                                        return `<span class="badge status-new">Pending</span>`
                                 }
                             }
                         )()}
@@ -244,8 +244,7 @@ function loadMeetings() {
                                 ${meeting.webhookPostStatus === "new" ? `` : ``}
                                 <img src="./icons/webhook.svg" alt="">
                             </button>
-                            &nbsp;
-                             <button class="delete-button" data-index="${i}" title="Delete" aria-label="Delete this meeting">
+                            <button class="delete-button" data-index="${i}" title="Delete" aria-label="Delete this meeting">
                                 <img src="./icons/delete.svg" alt="">
                             </button>
                         </div>
@@ -357,7 +356,7 @@ function loadMeetings() {
                 }
             }
             else {
-                meetingsTable.innerHTML = `<tr><td colspan="4">Your next meeting will show up here</td></tr>`
+                meetingsTable.innerHTML = `<tr><td colspan="5" style="color: var(--text-2); text-align: center; padding: 2rem;">Your next meeting will appear here</td></tr>`
             }
         }
     })

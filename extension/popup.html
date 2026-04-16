@@ -5,210 +5,260 @@
 <head>
   <title>meet-transcripts</title>
   <style>
+    :root {
+      --bg:            #07111b;
+      --surface:       #0c1e2e;
+      --surface-2:     #122839;
+      --surface-3:     #1a3347;
+      --brand:         #2dd4bf;
+      --brand-dim:     rgba(45, 212, 191, 0.1);
+      --brand-border:  rgba(45, 212, 191, 0.2);
+      --text:          #dde9f4;
+      --text-2:        #7ea8c0;
+      --text-3:        #3d6880;
+      --border:        rgba(255, 255, 255, 0.07);
+      --r-sm:          6px;
+      --r:             10px;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      width: 560px;
-      padding: 1.5rem;
-      background: #071f29;
-      color: #C0C0C0;
+      width: 400px;
+      padding: 1.25rem;
+      background: var(--bg);
+      color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 0.875rem;
+      line-height: 1.5;
+      margin: 0;
+      accent-color: var(--brand);
     }
 
     h1 {
-      font-size: 2rem;
+      font-size: 1.2rem;
+      font-weight: 700;
       margin: 0;
+      letter-spacing: -0.01em;
+      color: var(--text);
     }
 
+    p { margin: 0; }
+
+    a {
+      color: var(--brand);
+      font-weight: 600;
+      text-underline-offset: 3px;
+      text-decoration-color: var(--brand-border);
+      transition: text-decoration-color 0.15s;
+    }
+
+    a:hover { text-decoration-color: var(--brand); }
+
+    /* ── Header ── */
     .header {
-      margin-bottom: 1.25rem;
-    }
-
-    .header-content {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      margin-bottom: 1rem;
+      gap: 0.75rem;
     }
 
-    .header-description {
-      margin: 0;
+    .header-desc {
+      font-size: 0.75rem;
+      color: var(--text-2);
+      margin-top: 0.2rem;
     }
 
     .logo {
-      width: 48px;
-      height: 48px;
-      border-radius: 96px;
+      width: 40px;
+      height: 40px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--brand-border);
+      flex-shrink: 0;
     }
 
-    .get-started {
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
       padding: 1rem;
-      background-color: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(4px);
-      border-radius: 8px;
-      margin-bottom: 1rem;
-      text-align: left;
+      margin-bottom: 0.625rem;
     }
 
-    .platform-toggles {
+    /* ── Status dot ── */
+    .status-bar {
       display: flex;
-      gap: 1.5rem;
-      /* margin-bottom: 1rem; */
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--brand);
+      margin-bottom: 0.875rem;
     }
 
-    .checkbox-group {
-      display: flex;
-      gap: 0.25rem;
-      align-items: flex-end;
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--brand);
+      border-radius: 50%;
+      box-shadow: 0 0 7px var(--brand);
+      flex-shrink: 0;
     }
 
-    ul {
-      padding-inline-start: 20px;
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0.875rem 0;
     }
 
-    p {
-      margin-bottom: 0;
-    }
-
+    /* ── Radio items ── */
     .radio-item {
       display: flex;
-      gap: 0.5rem;
-      align-items: start;
-      margin-bottom: 1rem;
-    }
-
-    .sub-text {
-      color: #a0a0a0;
-    }
-
-    input {
-      margin-top: 0.25rem;
-      accent-color: #2A9ACA;
-      width: 18px;
-      height: 18px;
+      gap: 0.625rem;
+      align-items: flex-start;
+      padding: 0.5rem 0.5rem;
+      border-radius: var(--r-sm);
       cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 0.25rem;
+    }
+
+    .radio-item:last-of-type { margin-bottom: 0; }
+
+    .radio-item:hover { background: var(--surface-2); }
+
+    input[type="radio"] {
+      margin-top: 0.2rem;
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      flex-shrink: 0;
     }
 
     label {
-      margin: 0;
-      margin-bottom: 0.25rem;
       cursor: pointer;
+      line-height: 1.4;
     }
 
-    a {
-      color: #2A9ACA;
-      font-weight: bold;
-      text-underline-offset: 4px;
+    label b { color: var(--text); }
+
+    .sub-text {
+      font-size: 0.75rem;
+      color: var(--text-2);
     }
 
-    button {
-      color: #2A9ACA;
-      font-weight: bold;
-      text-decoration: underline;
-      text-underline-offset: 4px;
-      font-family: "TASA Explorer", sans-serif;
-      background: transparent;
-      border: none;
-      cursor: pointer;
+    .footnote {
+      font-size: 0.75rem;
+      color: var(--text-3);
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      line-height: 1.5;
     }
 
-    .divider {
-      border: 1px solid #2a9aca33;
-      margin: 1rem 0rem;
-    }
-
-    .beta {
-      margin-bottom: 1.5rem;
+    /* ── Webhook card ── */
+    .webhook-card {
       display: flex;
-      /* gap: 0.25rem; */
+      gap: 0.75rem;
+      align-items: center;
     }
 
-    .footer {
-      margin-bottom: 2.75rem;
+    .tool-logos {
       display: flex;
-      gap: 1.5rem;
-      justify-content: space-between;
-    }
-
-    .footer-link {
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .footer-separator {
-      margin: 0 0.5rem;
+      gap: 0.25rem;
+      align-items: center;
+      flex-shrink: 0;
     }
 
     .tool-logo {
-      height: 24px;
+      height: 22px;
       width: auto;
+      opacity: 0.8;
     }
 
-    .right-arrow {
-      font-family: "SUSE", sans-serif;
-      font-size: small;
+    .webhook-card p {
+      font-size: 0.8125rem;
+      color: var(--text-2);
     }
+
+    /* ── Footer ── */
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.875rem;
+    }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .footer a, .footer-version {
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .footer-sep {
+      color: var(--text-3);
+      font-size: 0.5rem;
+      margin: 0 0.2rem;
+    }
+
+    .footer-version { color: var(--text-3); }
   </style>
 </head>
 
 <body>
-  <div>
-    <div class="header">
-      <div class="header-content">
-        <div class="header-text">
-          <h1>meet-transcripts</h1>
-          <p class="header-description">
-            Google Meet transcript capture. Private, local, no telemetry.
-          </p>
-        </div>
-        <img class="logo" src="./icon.png" alt="Extension icon" />
-      </div>
-    </div>
-
-
-
-    <div class="get-started">
-      <div>
-        <p style="margin: 0; color: #2A9ACA;"><b>Active on Google Meet</b></p>
-      </div>
-      <hr class="divider" />
-      <div class="radio-item">
-        <input type="radio" name="mode" id="auto-mode" />
-        <label for="auto-mode"><b>Auto mode</b>
-          <br /><span class="sub-text">Get transcripts of all meetings</span>
-        </label>
-      </div>
-      <div class="radio-item">
-        <input type="radio" name="mode" id="manual-mode" />
-        <label for="manual-mode"><b>Manual mode</b> <br />
-          <span class="sub-text">Switch on transcript as needed during the meeting</span>
-        </label>
-      </div>
-      <!-- <hr class="divider" /> -->
-      <p>In both modes, transcript will be downloaded as a text file at the
-        end of each meeting
-      </p>
-    </div>
-
-    <div class="get-started" style="display: flex; gap: 1rem; align-items: center;">
-      <div style="display: flex; gap: 0.25rem; align-items: center;">
-        <img class="tool-logo" src="./icons/google-docs.svg" alt="Google Docs logo">
-        <img class="tool-logo" src="./icons/notion.svg" alt="Notion logo">
-      </div>
-      <p style="margin-top: 0px;">Integrate with any tool using <a href="meetings.html#webhooks"
-          target="_blank"><b>webhooks <span class="right-arrow">&rarr;</span></b></a></p>
-    </div>
-
+  <div class="header">
     <div>
-      <div class="footer">
-        <a href="./meetings.html" target="_blank">Last 10 meetings <span class="right-arrow">&rarr;</span></a>
-        <div>
-          <a href="https://github.com/patrick204nqh/meet-transcripts#readme" target="_blank">Get help</a>
-          <span class="footer-separator">&#9679;</span>
-          <a href="https://github.com/patrick204nqh/meet-transcripts/issues" target="_blank">Report a bug</a>
-        </div>
-      </div>
-      <p class="footer-link">
-        <span id="version"></span>
-      </p>
+      <h1>meet-transcripts</h1>
+      <p class="header-desc">Google Meet transcript capture. Private, local, no telemetry.</p>
+    </div>
+    <img class="logo" src="./icon.png" alt="Extension icon" />
+  </div>
+
+  <div class="card">
+    <div class="status-bar">
+      <span class="status-dot"></span>Active on Google Meet
+    </div>
+    <div class="radio-item">
+      <input type="radio" name="mode" id="auto-mode" />
+      <label for="auto-mode">
+        <b>Auto mode</b><br />
+        <span class="sub-text">Capture transcripts for every meeting automatically</span>
+      </label>
+    </div>
+    <div class="radio-item">
+      <input type="radio" name="mode" id="manual-mode" />
+      <label for="manual-mode">
+        <b>Manual mode</b><br />
+        <span class="sub-text">Toggle capture on and off during each meeting</span>
+      </label>
+    </div>
+    <p class="footnote">Transcripts are saved locally and downloaded as a text file after each meeting.</p>
+  </div>
+
+  <div class="card webhook-card">
+    <div class="tool-logos">
+      <img class="tool-logo" src="./icons/google-docs.svg" alt="Google Docs logo">
+      <img class="tool-logo" src="./icons/notion.svg" alt="Notion logo">
+    </div>
+    <p>Send transcripts to any tool via <a href="meetings.html#webhooks" target="_blank">webhooks &rarr;</a></p>
+  </div>
+
+  <div class="footer">
+    <a href="./meetings.html" target="_blank">Last 10 meetings &rarr;</a>
+    <div class="footer-links">
+      <a href="https://github.com/patrick204nqh/meet-transcripts#readme" target="_blank">Help</a>
+      <span class="footer-sep">&#9679;</span>
+      <a href="https://github.com/patrick204nqh/meet-transcripts/issues" target="_blank">Report a bug</a>
+      <span class="footer-sep">&#9679;</span>
+      <span class="footer-version" id="version"></span>
     </div>
   </div>
 

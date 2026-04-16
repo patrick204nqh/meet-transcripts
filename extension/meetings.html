@@ -6,23 +6,91 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>meet-transcripts — Meetings</title>
     <style>
-        html {
-            scroll-behavior: smooth;
+        :root {
+            --bg:            #07111b;
+            --surface:       #0c1e2e;
+            --surface-2:     #122839;
+            --surface-3:     #1a3347;
+            --brand:         #2dd4bf;
+            --brand-dim:     rgba(45, 212, 191, 0.1);
+            --brand-border:  rgba(45, 212, 191, 0.2);
+            --text:          #dde9f4;
+            --text-2:        #7ea8c0;
+            --text-3:        #3d6880;
+            --border:        rgba(255, 255, 255, 0.07);
+            --border-brand:  rgba(45, 212, 191, 0.15);
+            --success:       #34d399;
+            --success-bg:    rgba(52, 211, 153, 0.12);
+            --error:         #f87171;
+            --error-bg:      rgba(248, 113, 113, 0.12);
+            --warning:       #fbbf24;
+            --warning-bg:    rgba(251, 191, 36, 0.12);
+            --r-sm:          6px;
+            --r:             10px;
+            --r-lg:          14px;
         }
+
+        * { box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             padding: 1.5rem 3rem;
-            color: #C0C0C0;
-            background: #071f29;
+            color: var(--text);
+            background: var(--bg);
             font-size: 1rem;
-            accent-color: #2A9ACA;
+            line-height: 1.6;
+            accent-color: var(--brand);
         }
 
         h1 {
-            margin: 0.5rem 0rem 1.5rem 0rem;
+            margin: 0.5rem 0 0.25rem 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
         }
 
+        h2 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        p { margin: 0; }
+
+        a {
+            color: var(--brand);
+            font-weight: 600;
+            text-underline-offset: 3px;
+            text-decoration-color: var(--brand-border);
+        }
+
+        a:hover { text-decoration-color: var(--brand); }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--brand); }
+
+        /* ── Page structure ── */
+        section { margin-bottom: 4rem; }
+
+        .sub-text {
+            color: var(--text-2);
+            font-size: 0.875rem;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 1.25rem 0;
+        }
+
+        /* ── Grid ── */
         .grid-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -30,343 +98,393 @@
             align-items: start;
         }
 
-        .grid-container>* {
-            overflow-x: auto;
-        }
+        .grid-container > * { overflow-x: auto; }
 
         @media screen and (max-width: 600px) {
-            .grid-container {
-                grid-template-columns: 1fr;
-            }
+            .grid-container { grid-template-columns: 1fr; }
         }
 
+        /* ── Cards ── */
         .card {
-            /* grid-column: 1; */
-            background: rgba(255, 255, 255, 0.1);
-            padding: 1.5rem 0rem;
-            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--r-lg);
+            padding: 1.25rem 0;
             margin-bottom: 1rem;
             container-type: inline-size;
         }
 
-        h2 {
-            margin-top: 0;
-            margin-bottom: 1rem;
-        }
-
-        .webhook-section-heading {
+        .card-header {
             display: flex;
             gap: 0.5rem;
-            align-items: start;
+            align-items: center;
+            padding: 0.75rem 1.25rem;
+            background: var(--brand-dim);
+            border-bottom: 1px solid var(--border-brand);
+            margin-bottom: 1.25rem;
+            margin-top: -1.25rem;
+            border-radius: var(--r-lg) var(--r-lg) 0 0;
         }
 
-        /* Custom scrollbar styling */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 6px;
+        .card-header-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text);
+            margin: 0;
         }
 
-        ::-webkit-scrollbar-track {
+        /* ── Meetings section header ── */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        /* ── Recover button ── */
+        #recover-last-meeting {
             background: transparent;
+            color: var(--brand);
+            border: 1px solid var(--brand-border);
+            border-radius: var(--r-sm);
+            padding: 0.3rem 0.75rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background: #a0a0a0;
-            border-radius: 4px;
+        #recover-last-meeting:hover {
+            background: var(--brand-dim);
+            border-color: var(--brand);
         }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: #2A9ACA;
+        /* ── Table ── */
+        #meetings-table-container { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            overflow: hidden;
         }
 
-        .webhook-header {
-            padding: 1rem 1.5rem;
-            background: #2a9aca1a;
-            margin-bottom: 1.5rem;
-            margin-top: -1.5rem;
-
-            p {
-                margin: 0;
-            }
+        th, td {
+            padding: 0.875rem 1.25rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
         }
 
-        .form-field {
-            padding: 0px 1.5rem;
+        th {
+            background: var(--surface-2);
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-2);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
 
+        tbody tr:last-child td { border-bottom: none; }
 
-        .form-field:not(:last-of-type) {
-            margin-bottom: 2rem;
+        tbody tr { transition: background 0.1s; }
+
+        tbody tr:hover { background: var(--surface-2); }
+
+        .meeting-title {
+            border-radius: var(--r-sm);
+            padding: 0.2rem 0.4rem;
+            text-decoration: underline;
+            text-decoration-color: var(--text-3);
+            text-underline-offset: 4px;
+            color: var(--text);
+            outline: none;
+            transition: background 0.15s;
         }
 
-        hr {
-            margin: 1.5rem 0rem;
-            border: 1px solid #2a9aca33;
+        .meeting-title:hover {
+            background: var(--surface-3);
+            text-decoration: none;
         }
 
-        .input-group {
-            margin-top: 0.5rem;
+        .meeting-title:focus {
+            background: var(--surface-3);
+            text-decoration: none;
+            outline: 1px solid var(--brand-border);
+        }
+
+        /* ── Status badges ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .badge::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .status-success { color: var(--success); background: var(--success-bg); }
+        .status-failed  { color: var(--error);   background: var(--error-bg); }
+        .status-new     { color: var(--warning);  background: var(--warning-bg); }
+
+        /* ── Action buttons ── */
+        .download-button,
+        .delete-button,
+        .post-button {
+            background: transparent;
+            color: var(--text-2);
+            border: none;
+            padding: 0.3rem;
+            border-radius: var(--r-sm);
+            cursor: pointer;
             display: flex;
             align-items: center;
+            justify-content: center;
+            transition: background 0.15s, color 0.15s;
         }
+
+        .download-button:hover, .post-button:hover {
+            background: var(--brand-dim);
+            color: var(--brand);
+        }
+
+        .delete-button:hover {
+            background: var(--error-bg);
+            color: var(--error);
+        }
+
+        /* ── Show all button ── */
+        #show-all {
+            display: block;
+            margin: 0.75rem auto 0;
+            border-radius: 100px;
+            background: transparent;
+            color: var(--brand);
+            border: 1px solid var(--brand-border);
+            padding: 0.3rem 1rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        #show-all:hover {
+            background: var(--brand-dim);
+            border-color: var(--brand);
+        }
+
+        .fade-mask {
+            mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 100%);
+            max-height: 20rem;
+            overflow-y: hidden;
+        }
+
+        /* ── Webhook form ── */
+        .form-field { padding: 0 1.25rem; }
+
+        .form-field:not(:last-of-type) { margin-bottom: 1.5rem; }
 
         label {
             display: block;
             cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 0.4rem;
         }
 
-        .sub-text:not(p) {
-            font-weight: normal;
-            color: #a0a0a0;
-            font-size: small;
+        .input-group {
+            display: flex;
+            align-items: stretch;
         }
 
         input[type="url"] {
-            width: 100%;
-            padding: 0.45rem;
-            border: 1px solid #2A9ACA;
-            border-radius: 4px 0px 0px 4px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #C0C0C0;
-            font-family: "TASA Explorer", sans-serif;
-            box-sizing: border-box;
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-brand);
+            border-right: none;
+            border-radius: var(--r-sm) 0 0 var(--r-sm);
+            background: var(--surface-2);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.875rem;
+            outline: none;
+            transition: border-color 0.15s;
         }
+
+        input[type="url"]:focus {
+            border-color: var(--brand);
+        }
+
+        input[type="url"]::placeholder { color: var(--text-3); }
+
+        button#save-webhook {
+            background: var(--brand);
+            color: #07111b;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0 var(--r-sm) var(--r-sm) 0;
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.15s;
+            white-space: nowrap;
+        }
+
+        button#save-webhook:disabled { opacity: 0.4; cursor: not-allowed; }
+        button#save-webhook:not(:disabled):hover { opacity: 0.85; }
 
         .checkbox-group {
             display: flex;
-            gap: 8px;
-            margin-bottom: -0.5rem;
+            gap: 0.5rem;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
         }
 
+        .checkbox-group:last-child { margin-bottom: 0; }
+
         input[type="checkbox"] {
-            margin: 0;
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
+            margin-top: 0.2rem;
             cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            font-weight: 400;
+            color: var(--text-2);
+            font-size: 0.875rem;
         }
 
         .radio-item {
             display: flex;
             gap: 0.5rem;
-            align-items: start;
+            align-items: flex-start;
+            padding: 0.5rem;
+            border-radius: var(--r-sm);
+            cursor: pointer;
+            transition: background 0.15s;
         }
 
-        .radio-item:not(:last-of-type) {
-            margin-bottom: 0.5rem;
-        }
+        .radio-item:not(:last-of-type) { margin-bottom: 0.25rem; }
+
+        .radio-item:hover { background: var(--surface-2); }
 
         input[type="radio"] {
-            margin: 0;
-            margin-top: 0.3rem;
-            width: 16px;
-            height: 16px;
-        }
-
-        button {
-            background: #2A9ACA;
-            color: #071f29;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            font-family: "TASA Explorer", sans-serif;
-            font-weight: bold;
+            margin-top: 0.25rem;
+            width: 15px;
+            height: 15px;
             cursor: pointer;
+            flex-shrink: 0;
         }
 
-        #save-webhook {
-            border-radius: 0px 4px 4px 0px;
+        .radio-item label {
+            margin-bottom: 0;
+            font-weight: 400;
         }
 
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .radio-item label b { color: var(--text); }
+
+        .radio-item .sub-text {
+            font-size: 0.8125rem;
+            color: var(--text-2);
         }
 
-        details {
-            padding: 0px 1.5rem;
-        }
-
-        details:first-of-type {
-            margin-bottom: 0.5rem;
-        }
-
-        summary {
-            cursor: pointer;
-            font-weight: bold;
-            color: #2A9ACA;
-        }
-
-        .accordion-content {
-            margin-bottom: 1.5rem;
-        }
-
-        .code-block {
-            margin: 1rem 0rem;
-            overflow-x: auto;
-            padding: 1rem;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            line-height: 1.5;
-        }
-
-        .code-block pre {
-            margin: 0;
-            white-space: pre;
-        }
-
-        .meetings-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        #recover-last-meeting {
-            background: transparent;
-            color: #2A9ACA;
-            border: 1px solid #2A9ACA;
-            margin: 1rem 0;
-            padding: 0.25rem 0.5rem;
-            display: flex;
-            gap: 0.25rem;
-            align-items: center;
-        }
-
-        #meetings-table-container {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #ffffff1a;
-            border-radius: 8px;
-        }
-
-        th,
-        td {
-            padding: 1rem 1.5rem;
-            text-align: left;
-            border-bottom: 1px solid #2a9aca33;
-        }
-
-        th {
-            background: #2a9aca1a;
-            font-weight: bold;
-        }
-
-        .meeting-title {
-            text-decoration: underline #a0a0a0;
-            text-underline-offset: 6px;
-            padding: 0.15rem;
-            border-radius: 0.25rem;
-        }
-
-        .meeting-title:hover {
-            outline: 1px solid #a0a0a0;
-            text-decoration: none;
-        }
-
-        .status-success {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-
-        .status-failed {
-            color: #f44336;
-            font-weight: bold
-        }
-
-        .status-new {
-            color: #FFA726;
-            font-weight: bold
-        }
-
-        .download-button,
-        .delete-button,
-        .post-button {
-            background: transparent;
-            color: #2A9ACA;
-            border: none;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: end;
-            font-size: smaller;
-        }
-
-        .card-heading {
-            margin: 0rem 1.5rem 1.25rem 1.5rem;
-            font-weight: bold;
-        }
-
+        /* ── Integration guides ── */
         .integration-card {
-            padding: 0rem 1.5rem;
+            padding: 0 1.25rem;
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.75rem;
         }
 
         @container (width < 600px) {
-            .integration-card {
-                grid-template-columns: 1fr;
-            }
+            .integration-card { grid-template-columns: 1fr; }
         }
 
         .integration-guide {
-            padding: 0.5rem;
+            padding: 0.625rem;
             background: transparent;
-            border: 1px solid #2a9aca88;
-            border-radius: 0.5rem;
+            border: 1px solid var(--brand-border);
+            border-radius: var(--r-sm);
             display: flex;
-            align-items: start;
+            align-items: flex-start;
             gap: 0.5rem;
-            color: #2A9ACA;
-            font-weight: bold;
+            color: var(--brand);
+            font-weight: 600;
+            font-size: 0.875rem;
             text-decoration: none;
-
-            img {
-                margin-top: 0.1rem;
-            }
-
-            p {
-                margin: 0;
-            }
+            transition: background 0.15s, border-color 0.15s;
         }
 
-        #show-all {
-            display: block;
-            margin: 0 auto;
-            border-radius: 100px;
-            background: transparent;
-            color: #2A9ACA;
-            border: 1px solid #2A9ACA;
-            padding: 0.25rem 0.75rem;
+        .integration-guide:hover {
+            background: var(--brand-dim);
+            border-color: var(--brand);
         }
 
-        .fade-mask {
-            mask-image: linear-gradient(to bottom, #071f29 0%, #071f29 90%, transparent 100%);
-            max-height: 20rem;
-            overflow-y: hidden;
+        .integration-guide img { margin-top: 0.1rem; }
+        .integration-guide p { margin: 0; }
+
+        /* ── Code blocks ── */
+        details { padding: 0 1.25rem; }
+        details:not(:last-of-type) { margin-bottom: 0.5rem; }
+
+        summary {
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--brand);
+            padding: 0.25rem 0;
         }
 
-        section {
-            margin-bottom: 5rem;
+        .code-block {
+            margin: 0.75rem 0 1.25rem;
+            overflow-x: auto;
+            padding: 1rem;
+            border-radius: var(--r-sm);
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            line-height: 1.6;
+            font-size: 0.8125rem;
+        }
+
+        .code-block pre { margin: 0; white-space: pre; }
+
+        .card-section-label {
+            margin: 0 1.25rem 0.75rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--text-2);
         }
     </style>
 </head>
 
 <body>
 
-
-    <div style="margin: 0px auto; max-width: 1440px;">
+    <div style="margin: 0 auto; max-width: 1440px;">
         <h1>meet-transcripts</h1>
 
         <section id="last-10-meetings">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="section-header">
                 <h2>Last 10 meetings</h2>
                 <button id="recover-last-meeting">Recover last meeting</button>
             </div>
-            <p class="sub-text" style="margin: 0 0 1rem 0;">Only the last 10 meetings are stored. Download or post to a webhook to keep older ones.</p>
+            <p class="sub-text" style="margin-bottom: 1rem;">Only the last 10 meetings are stored. Download or post to a webhook to keep older ones.</p>
             <div id="meetings-table-container">
                 <table>
                     <thead>
@@ -379,33 +497,31 @@
                         </tr>
                     </thead>
                     <tbody id="meetings-table">
-                        <!-- Table content will be populated by JavaScript -->
+                        <!-- Populated by JavaScript -->
                     </tbody>
                 </table>
             </div>
-            <button id="show-all" style="display: none;">Show
-                all
-            </button>
+            <button id="show-all" style="display: none;">Show all</button>
         </section>
 
         <section id="webhooks">
-            <h2 style="margin-bottom: 0;">Webhooks</h2>
-
-            <p style="margin-top: 0.5rem" class="sub-text">Connect meet-transcripts to any tool that accepts a webhook POST.</p>
+            <h2 style="margin-bottom: 0.25rem;">Webhooks</h2>
+            <p class="sub-text" style="margin-bottom: 1.25rem;">Connect meet-transcripts to any tool that accepts a webhook POST.</p>
 
             <div class="grid-container">
                 <div class="card">
-                    <div class="webhook-header" style="display: flex; gap: 0.5rem; align-items: center;">
-                        <p class="card-heading">Configure webhook</p>
-                        <img src="./icons/webhook-white.svg" alt="" width="20px">
+                    <div class="card-header">
+                        <img src="./icons/webhook-white.svg" alt="" width="16">
+                        <p class="card-header-title">Configure webhook</p>
                     </div>
+
                     <form id="webhook-url-form" class="form-field">
                         <label for="webhook-url">Webhook URL</label>
                         <div class="input-group">
                             <input type="url" id="webhook-url" placeholder="https://your-webhook-url.com">
-                            <button id="save-webhook">Save</button>
+                            <button id="save-webhook" type="submit">Save</button>
                         </div>
-                        <p class="sub-text" style="margin: 0.5rem 0 0 0; font-size: smaller;">Saving will ask for browser permission to send data to this domain.</p>
+                        <p class="sub-text" style="margin-top: 0.4rem; font-size: 0.8125rem;">Saving will ask for browser permission to send data to this domain.</p>
                     </form>
 
                     <hr />
@@ -413,15 +529,11 @@
                     <form class="form-field">
                         <div class="checkbox-group">
                             <input type="checkbox" id="auto-post-webhook" checked>
-                            <label for="auto-post-webhook">
-                                Automatically post transcript to webhook URL, after each meeting
-                            </label>
+                            <label for="auto-post-webhook">Automatically post transcript to webhook URL, after each meeting</label>
                         </div>
-                        <div class="checkbox-group" style="margin-top: 1.5rem;">
+                        <div class="checkbox-group">
                             <input type="checkbox" id="auto-download-file" checked>
-                            <label for="auto-download-file">
-                                Automatically download transcript text file, after each meeting
-                            </label>
+                            <label for="auto-download-file">Automatically download transcript text file, after each meeting</label>
                         </div>
                     </form>
 
@@ -430,14 +542,15 @@
                     <form class="form-field">
                         <div class="radio-item">
                             <input type="radio" name="webhook-body-type" id="simple-webhook-body" checked />
-                            <label for="simple-webhook-body"><b>Simple webhook body</b>
-                                <br /><span class="sub-text">Pre-formatted data, suitable for no-code
-                                    integrations</span>
+                            <label for="simple-webhook-body">
+                                <b>Simple webhook body</b><br />
+                                <span class="sub-text">Pre-formatted data, suitable for no-code integrations</span>
                             </label>
                         </div>
                         <div class="radio-item">
                             <input type="radio" name="webhook-body-type" id="advanced-webhook-body" />
-                            <label for="advanced-webhook-body"><b>Advanced webhook body</b> <br />
+                            <label for="advanced-webhook-body">
+                                <b>Advanced webhook body</b><br />
                                 <span class="sub-text">Raw data, suitable for code integrations</span>
                             </label>
                         </div>
@@ -445,36 +558,28 @@
                 </div>
 
                 <div class="card">
-                    <div class="webhook-header" style="display: flex; gap: 0.5rem; align-items: center;">
-                        <p class="card-heading">Webhook help</p>
+                    <div class="card-header">
+                        <p class="card-header-title">Webhook reference</p>
                     </div>
-                    <hr />
-                    <p class="card-heading">Webhook JSON body</p>
+                    <p class="card-section-label">Request body shape</p>
                     <details>
-                        <summary>Webhook body (simple)</summary>
-                        <div class="code-block accordion-content">
-                            <code>
-                        <pre>
-{
+                        <summary>Simple body</summary>
+                        <div class="code-block">
+                            <pre>{
     "webhookBodyType": "simple",
     "meetingSoftware": "Google Meet",
     "meetingTitle": "Team meeting",
     "meetingStartTimestamp": "01/15/2024, 10:00 AM",
     "meetingEndTimestamp": "01/15/2024, 11:00 AM",
-    "transcript": "Priya (01/15/2024, 10:00 AM)\nHi everyone!\n\nCarlos (01/15/2024, 10:01 AM)\nHello Priya!...\n\n",
-    "chatMessages": "Mohammed (01/15/2024, 10:05 AM)\nCan you share the slides?\n\nSofia (01/15/2024, 10:06 AM)\nHere's the link: ...\n\n"
-}
-</pre>
-                        </code>
+    "transcript": "Priya (01/15/2024, 10:00 AM)\nHi everyone!\n\n...",
+    "chatMessages": "Mohammed (01/15/2024, 10:05 AM)\nCan you share slides?\n\n..."
+}</pre>
                         </div>
                     </details>
-
                     <details>
-                        <summary>Webhook body (advanced)</summary>
-                        <div class="code-block accordion-content">
-                            <code>
-                            <pre>
-{
+                        <summary>Advanced body</summary>
+                        <div class="code-block">
+                            <pre>{
     "webhookBodyType": "advanced",
     "meetingSoftware": "Google Meet",
     "meetingTitle": "Team meeting",
@@ -485,11 +590,6 @@
             "personName": "Priya",
             "timestamp": "2024-01-15T10:00:00.000Z",
             "transcriptText": "Hi everyone!"
-        },
-        {
-            "personName": "Carlos",
-            "timestamp": "2024-01-15T10:01:00.000Z",
-            "transcriptText": "Hello Priya!"
         }
     ],
     "chatMessages": [
@@ -497,16 +597,9 @@
             "personName": "Mohammed",
             "timestamp": "2024-01-15T10:05:00.000Z",
             "chatMessageText": "Can you share the slides?"
-        },
-        {
-            "personName": "Sofia",
-            "timestamp": "2024-01-15T10:06:00.000Z",
-            "chatMessageText": "Here's the link: ..."
         }
     ]
-}
-</pre>
-                    </code>
+}</pre>
                         </div>
                     </details>
                 </div>
