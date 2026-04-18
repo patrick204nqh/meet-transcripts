@@ -14,9 +14,28 @@ const TELEMETRY_PATTERNS = [
 const SOURCE_FILES = [
   'background.js',
   'content-google-meet.js',
+  'popup.js',
+  'meetings.js',
 ];
 
+async function collectExternalRequests(page, extensionId, url) {
+  const external = [];
+  page.on('request', req => {
+    if (!req.url().startsWith(`chrome-extension://${extensionId}`)) {
+      external.push(req.url());
+    }
+  });
+  await page.goto(url);
+  await expect(page.getByRole('heading', { name: 'Meet Transcripts' })).toBeVisible();
+  return external;
+}
+
 test.describe('Security', () => {
+  let manifest;
+
+  test.beforeAll(() => {
+    manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'));
+  });
 
   test('extension ID is valid and not orphaned', async ({ extensionId }) => {
     expect(extensionId).not.toBe('invalid');
@@ -24,33 +43,19 @@ test.describe('Security', () => {
   });
 
   test('popup page makes no external network requests', async ({ page, extensionId }) => {
-    const externalRequests = [];
-    page.on('request', req => {
-      const url = req.url();
-      if (!url.startsWith(`chrome-extension://${extensionId}`)) {
-        externalRequests.push(url);
-      }
-    });
-
-    await page.goto(`chrome-extension://${extensionId}/popup.html`);
-    await expect(page.getByRole('heading', { name: 'Meet Transcripts' })).toBeVisible();
-
-    expect(externalRequests, `unexpected external requests: ${externalRequests.join(', ')}`).toHaveLength(0);
+    const external = await collectExternalRequests(
+      page, extensionId,
+      `chrome-extension://${extensionId}/popup.html`
+    );
+    expect(external, `unexpected external requests: ${external.join(', ')}`).toHaveLength(0);
   });
 
   test('meetings page makes no external network requests', async ({ page, extensionId }) => {
-    const externalRequests = [];
-    page.on('request', req => {
-      const url = req.url();
-      if (!url.startsWith(`chrome-extension://${extensionId}`)) {
-        externalRequests.push(url);
-      }
-    });
-
-    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
-    await expect(page.getByRole('heading', { name: 'Meet Transcripts' })).toBeVisible();
-
-    expect(externalRequests, `unexpected external requests: ${externalRequests.join(', ')}`).toHaveLength(0);
+    const external = await collectExternalRequests(
+      page, extensionId,
+      `chrome-extension://${extensionId}/meetings.html`
+    );
+    expect(external, `unexpected external requests: ${external.join(', ')}`).toHaveLength(0);
   });
 
   test('extension source contains no upstream telemetry endpoints', () => {
@@ -63,36 +68,26 @@ test.describe('Security', () => {
   });
 
   test('manifest name is Meet Transcripts', () => {
-    const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'));
     expect(manifest.name).toBe('Meet Transcripts');
   });
 
   test('manifest declares only expected permissions', () => {
-    const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'));
-    const declared = manifest.permissions ?? [];
     const allowed = ['storage', 'downloads', 'scripting', 'notifications'];
-
-    for (const perm of declared) {
+    for (const perm of manifest.permissions ?? []) {
       expect(allowed, `unexpected permission declared: ${perm}`).toContain(perm);
     }
   });
 
   test('manifest host_permissions are scoped to expected domains', () => {
-    const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'));
-    const hostPerms = manifest.host_permissions ?? [];
     const allowed = ['https://meet.google.com/*'];
-
-    for (const perm of hostPerms) {
+    for (const perm of manifest.host_permissions ?? []) {
       expect(allowed, `unexpected host_permission: ${perm}`).toContain(perm);
     }
   });
 
   test('manifest optional_host_permissions contain no Zoom or Teams domains', () => {
-    const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'));
-    const optionalHostPerms = manifest.optional_host_permissions ?? [];
     const forbidden = ['zoom.us', 'teams.live.com', 'teams.microsoft.com'];
-
-    for (const perm of optionalHostPerms) {
+    for (const perm of manifest.optional_host_permissions ?? []) {
       for (const domain of forbidden) {
         expect(perm, `optional_host_permissions must not include ${domain}`).not.toContain(domain);
       }
@@ -100,8 +95,6 @@ test.describe('Security', () => {
   });
 
   test('manifest has no declarative_net_request block', () => {
-    const manifest = JSON.parse(fs.readFileSync(path.join(extensionPath, 'manifest.json'), 'utf-8'));
     expect(manifest.declarative_net_request).toBeUndefined();
   });
-
 });

@@ -1,5 +1,43 @@
 import { test, expect } from './fixtures/extension.js';
 
+const MOCK_MEETINGS = [
+  {
+    meetingSoftware: 'Google Meet',
+    meetingTitle: 'Q2 Product Review',
+    meetingStartTimestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    meetingEndTimestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    transcript: [],
+    chatMessages: [],
+    webhookPostStatus: 'successful',
+  },
+  {
+    meetingSoftware: 'Google Meet',
+    meetingTitle: '1:1 with Manager',
+    meetingStartTimestamp: new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString(),
+    meetingEndTimestamp: new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString(),
+    transcript: [],
+    chatMessages: [],
+    webhookPostStatus: 'failed',
+  },
+  {
+    meetingSoftware: 'Google Meet',
+    meetingTitle: 'Design Review',
+    meetingStartTimestamp: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
+    meetingEndTimestamp: new Date(Date.now() - 70.5 * 60 * 60 * 1000).toISOString(),
+    transcript: [],
+    chatMessages: [],
+    webhookPostStatus: 'new',
+  },
+];
+
+async function seedMeetings(page, meetings) {
+  await page.evaluate((data) => {
+    return new Promise((resolve) => chrome.storage.local.set({ meetings: data }, resolve));
+  }, meetings);
+  await page.reload();
+  await page.waitForSelector('#meetings-table tr');
+}
+
 test.describe('Meetings page', () => {
   test.beforeEach(async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/meetings.html`);
@@ -72,5 +110,31 @@ test.describe('Meetings page', () => {
     await page.locator('#simple-webhook-body').check();
     await expect(page.locator('#simple-webhook-body')).toBeChecked();
     await expect(page.locator('#advanced-webhook-body')).not.toBeChecked();
+  });
+
+  test('shows empty state message when no meetings are stored', async ({ page }) => {
+    await expect(page.locator('#meetings-table')).toContainText('Your next meeting will appear here');
+  });
+
+  test('renders a row for each seeded meeting', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+    await seedMeetings(page, MOCK_MEETINGS);
+    await expect(page.locator('#meetings-table tr')).toHaveCount(MOCK_MEETINGS.length);
+  });
+
+  test('displays meeting titles in the table', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+    await seedMeetings(page, MOCK_MEETINGS);
+    await expect(page.locator('#meetings-table')).toContainText('Q2 Product Review');
+    await expect(page.locator('#meetings-table')).toContainText('1:1 with Manager');
+    await expect(page.locator('#meetings-table')).toContainText('Design Review');
+  });
+
+  test('shows correct webhook status badges', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+    await seedMeetings(page, MOCK_MEETINGS);
+    await expect(page.locator('.status-success').first()).toBeVisible();
+    await expect(page.locator('.status-failed').first()).toBeVisible();
+    await expect(page.locator('.status-new').first()).toBeVisible();
   });
 });
