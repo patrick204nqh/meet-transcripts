@@ -8,6 +8,7 @@
     <style>
         :root {
             --brand:         #38bdf8;
+            --brand-deep:    #1e3a8a;
             --brand-dim:     rgba(56, 189, 248, 0.12);
             --brand-border:  rgba(56, 189, 248, 0.3);
             --text:          #f1f5f9;
@@ -38,9 +39,9 @@
             padding: 1.5rem 3rem;
             color: var(--text);
             background:
-                radial-gradient(ellipse at 20% 10%, rgba(56, 189, 248, 0.18) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 80%, rgba(2, 132, 199, 0.15) 0%, transparent 50%),
-                linear-gradient(145deg, #071e34 0%, #0c2d4d 50%, #081f38 100%);
+                radial-gradient(ellipse at 20% 10%, rgba(30, 58, 138, 0.35) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(56, 189, 248, 0.10) 0%, transparent 50%),
+                linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
             background-attachment: fixed;
             min-height: 100vh;
             font-size: 1rem;
@@ -132,8 +133,8 @@
             gap: 0.5rem;
             align-items: center;
             padding: 0.75rem 1.25rem;
-            background: var(--brand-dim);
-            border-bottom: 1px solid var(--border-brand);
+            background: rgba(30, 58, 138, 0.35);
+            border-bottom: 1px solid rgba(30, 58, 138, 0.6);
             margin-bottom: 1.25rem;
             margin-top: -1.25rem;
             border-radius: var(--r-lg) var(--r-lg) 0 0;
@@ -195,7 +196,7 @@
         }
 
         th {
-            background: rgba(56, 189, 248, 0.08);
+            background: rgba(30, 58, 138, 0.25);
             font-size: 0.8125rem;
             font-weight: 600;
             color: var(--text-2);
@@ -348,7 +349,7 @@
 
         input[type="url"]:focus {
             border-color: var(--brand);
-            background: rgba(167, 139, 250, 0.06);
+            background: rgba(30, 58, 138, 0.2);
         }
 
         input[type="url"]::placeholder { color: var(--text-3); }
