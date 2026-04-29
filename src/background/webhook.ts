@@ -1,7 +1,7 @@
 import type { Meeting, WebhookBody } from '../types'
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
-import { getTranscriptString, getChatMessagesString } from './download'
+import { getTranscriptString, getChatMessagesString } from '../shared/formatters'
 
 const timeFormat: Intl.DateTimeFormatOptions = {
   year: "numeric",

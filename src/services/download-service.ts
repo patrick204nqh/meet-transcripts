@@ -1,7 +1,8 @@
 import type { Meeting } from '../types'
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal } from '../shared/storage-repo'
-import { downloadTranscript, getTranscriptString, getChatMessagesString } from '../background/download'
+import { downloadTranscript } from '../background/download'
+import { getTranscriptString, getChatMessagesString } from '../shared/formatters'
 
 export const DownloadService = {
   downloadTranscript: async (index: number): Promise<void> => downloadTranscript(index, false),
