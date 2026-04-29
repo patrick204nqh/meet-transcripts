@@ -197,6 +197,13 @@
 	async function persistStateAndSignalEnd(keys, reason) {
 		await chrome.storage.local.set(buildStorageObject(keys));
 		pulseStatus();
+		if (reason === "page_unload") {
+			chrome.runtime.sendMessage({
+				type: "meeting_ended",
+				reason
+			}).catch(() => {});
+			return;
+		}
 		const response = await sendMessage({
 			type: "meeting_ended",
 			reason

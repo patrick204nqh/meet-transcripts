@@ -24,6 +24,15 @@ export function persistStateFields(keys: StorageKey[]): void {
 export async function persistStateAndSignalEnd(keys: StorageKey[], reason: MeetingEndReason): Promise<void> {
   await chrome.storage.local.set(buildStorageObject(keys))
   pulseStatus()
+
+  // On page_unload the content script's message channel will close before the background
+  // can call sendResponse — fire-and-forget to avoid an "Unchecked runtime.lastError" warning.
+  // The background's tabs.onUpdated/onRemoved listeners finalize the meeting as a fallback.
+  if (reason === "page_unload") {
+    chrome.runtime.sendMessage({ type: "meeting_ended", reason }).catch(() => {})
+    return
+  }
+
   const response = await sendMessage({ type: "meeting_ended", reason })
   if (!response.success && response.error.errorCode === ErrorCode.MEETING_NOT_FOUND) {
     console.error(response.error.errorMessage)
