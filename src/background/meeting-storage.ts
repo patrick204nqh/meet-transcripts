@@ -1,4 +1,5 @@
 import type { Meeting } from '../types'
+import { ErrorCode } from '../shared/errors'
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { downloadTranscript } from './download'
 import { postTranscriptToWebhook } from './webhook'
@@ -7,10 +8,10 @@ export async function pickupLastMeetingFromStorage(): Promise<string> {
   const data = await StorageLocal.getCurrentMeetingData()
 
   if (!data.meetingStartTimestamp) {
-    throw { errorCode: "013", errorMessage: "No meetings found. May be attend one?" }
+    throw { errorCode: ErrorCode.NO_MEETINGS, errorMessage: "No meetings found. May be attend one?" }
   }
   if (!data.transcript?.length && !data.chatMessages?.length) {
-    throw { errorCode: "014", errorMessage: "Empty transcript and empty chatMessages" }
+    throw { errorCode: ErrorCode.EMPTY_TRANSCRIPT, errorMessage: "Empty transcript and empty chatMessages" }
   }
 
   const newEntry: Meeting = {
@@ -57,7 +58,7 @@ export async function recoverLastMeeting(): Promise<string> {
   ])
 
   if (!data.meetingStartTimestamp) {
-    throw { errorCode: "013", errorMessage: "No meetings found. May be attend one?" }
+    throw { errorCode: ErrorCode.NO_MEETINGS, errorMessage: "No meetings found. May be attend one?" }
   }
 
   const lastSaved = meetings.length > 0 ? meetings[meetings.length - 1] : undefined
