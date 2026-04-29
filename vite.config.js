@@ -30,7 +30,7 @@ export default defineConfig({
   plugins: [backgroundBuild()],
   build: {
     lib: {
-      entry: 'src/content-google-meet.ts',
+      entry: 'src/content/content-google-meet.ts',
       formats: ['iife'],
       name: 'MeetTranscripts',
     },

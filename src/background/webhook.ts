@@ -1,16 +1,7 @@
 import type { Meeting, WebhookBody } from '../types'
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
-import { getTranscriptString, getChatMessagesString } from './download'
-
-const timeFormat: Intl.DateTimeFormatOptions = {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: true,
-}
+import { getTranscriptString, getChatMessagesString, timeFormat } from '../shared/formatters'
 
 const notificationClickTargets = new Set<string>()
 
@@ -64,8 +55,8 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
   }).catch(error => { throw { errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED, errorMessage: error } })
 
   if (!response.ok) {
-    meetings[index].webhookPostStatus = "failed"
-    await StorageLocal.setMeetings(meetings)
+    const withFailed = meetings.map((m, i) => i === index ? { ...m, webhookPostStatus: "failed" as const } : m)
+    await StorageLocal.setMeetings(withFailed)
     chrome.notifications.create({
       type: "basic",
       iconUrl: "icon.png",
@@ -77,7 +68,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
     throw { errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED, errorMessage: `HTTP ${response.status} ${response.statusText}` }
   }
 
-  meetings[index].webhookPostStatus = "successful"
-  await StorageLocal.setMeetings(meetings)
+  const withSuccess = meetings.map((m, i) => i === index ? { ...m, webhookPostStatus: "successful" as const } : m)
+  await StorageLocal.setMeetings(withSuccess)
   return "Webhook posted successfully"
 }

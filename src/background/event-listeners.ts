@@ -1,7 +1,7 @@
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { MeetingService } from '../services/meeting-service'
 import { clearTabIdAndApplyUpdate } from './lifecycle'
-import { reRegisterContentScript } from './content-scripts'
+import { reRegisterContentScript } from './content-script'
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   StorageLocal.getMeetingTabId().then((id) => {
@@ -17,7 +17,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.runtime.onUpdateAvailable.addListener(() => {
   StorageLocal.getMeetingTabId().then((id) => {
     if (id) {
-      StorageLocal.setDeferredUpdate(true).then(() => console.log("Deferred update flag set"))
+      StorageLocal.setDeferredUpdatePending(true).then(() => console.log("Deferred update flag set"))
     } else {
       console.log("No active meeting, applying update immediately")
       chrome.runtime.reload()

@@ -10,7 +10,7 @@ export interface ChatMessage {
   text: string
 }
 
-export type MeetingSoftware = "Google Meet" | "" | undefined
+export type MeetingSoftware = "Google Meet" | undefined
 export type MeetingTabId = number | "processing" | null
 export type OperationMode = "auto" | "manual"
 export type WebhookBodyType = "simple" | "advanced"
@@ -64,10 +64,9 @@ export type ExtensionMessage =
   | { type: "recover_last_meeting" }
   | { type: "open_popup" }
 
-export interface ExtensionResponse {
-  success: boolean
-  message?: string | ErrorObject
-}
+export type ExtensionResponse =
+  | { success: true; data?: string }
+  | { success: false; error: ErrorObject }
 
 export type Platform = "google_meet"
 

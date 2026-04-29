@@ -15,7 +15,7 @@ export async function pickupLastMeeting(): Promise<string> {
   }
 
   const newEntry: Meeting = {
-    software: data.software ?? "",
+    software: data.software,
     title: data.title,
     startTimestamp: data.startTimestamp,
     endTimestamp: new Date().toISOString(),
@@ -24,10 +24,9 @@ export async function pickupLastMeeting(): Promise<string> {
     webhookPostStatus: "new",
   }
 
-  let meetings = await StorageLocal.getMeetings()
-  meetings.push(newEntry)
-  if (meetings.length > 10) meetings = meetings.slice(-10)
-  await StorageLocal.setMeetings(meetings)
+  const meetings = await StorageLocal.getMeetings()
+  const updated = [...meetings, newEntry].slice(-10)
+  await StorageLocal.setMeetings(updated)
   console.log("Last meeting picked up")
   return "Last meeting picked up"
 }
@@ -41,7 +40,7 @@ export async function finalizeMeeting(): Promise<string> {
   const promises: Promise<unknown>[] = []
 
   if (sync.autoDownloadFileAfterMeeting) {
-    promises.push(downloadTranscript(lastIndex, !!(sync.webhookUrl && sync.autoPostWebhookAfterMeeting)))
+    promises.push(downloadTranscript(lastIndex))
   }
   if (sync.autoPostWebhookAfterMeeting && sync.webhookUrl) {
     promises.push(postTranscriptToWebhook(lastIndex))

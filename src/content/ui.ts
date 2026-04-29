@@ -1,4 +1,4 @@
-import type { ExtensionStatusJSON } from './types'
+import type { ExtensionStatusJSON } from '../types'
 
 const commonCSS = `background: rgb(255 255 255 / 100%);
     backdrop-filter: blur(16px);
