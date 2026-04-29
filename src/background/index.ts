@@ -1,14 +1,15 @@
 import type { ExtensionMessage, ExtensionResponse, ErrorObject } from '../types'
-import { StorageLocal, StorageSync } from '../shared/storage-repo'
+import { ErrorCode } from '../shared/errors'
+import { StorageLocal } from '../shared/storage-repo'
 import { MeetingService } from '../services/meeting-service'
 import { DownloadService } from '../services/download-service'
 import { WebhookService } from '../services/webhook-service'
 import { clearTabIdAndApplyUpdate } from './lifecycle'
-import { reRegisterContentScripts } from './content-scripts'
+import './event-listeners'
 
 const ok: ExtensionResponse = { success: true }
 const err = (e: ErrorObject): ExtensionResponse => ({ success: false, message: e })
-const invalidIndex: ExtensionResponse = { success: false, message: { errorCode: "015", errorMessage: "Invalid index" } }
+const invalidIndex: ExtensionResponse = { success: false, message: { errorCode: ErrorCode.INVALID_INDEX, errorMessage: "Invalid index" } }
 const isValidIndex = (i: unknown): i is number => typeof i === "number" && i >= 0
 
 chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
@@ -59,42 +60,4 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   }
 
   return true
-})
-
-chrome.tabs.onRemoved.addListener((tabId) => {
-  StorageLocal.getMeetingTabId().then((id) => {
-    if (tabId === id) {
-      console.log("Successfully intercepted tab close")
-      StorageLocal.setMeetingTabId("processing").then(() =>
-        MeetingService.finalizeMeeting().finally(() => clearTabIdAndApplyUpdate())
-      )
-    }
-  })
-})
-
-chrome.runtime.onUpdateAvailable.addListener(() => {
-  StorageLocal.getMeetingTabId().then((id) => {
-    if (id) {
-      StorageLocal.setDeferredUpdate(true).then(() => console.log("Deferred update flag set"))
-    } else {
-      console.log("No active meeting, applying update immediately")
-      chrome.runtime.reload()
-    }
-  })
-})
-
-chrome.permissions.onAdded.addListener(() => {
-  setTimeout(() => reRegisterContentScripts(), 2000)
-})
-
-chrome.runtime.onInstalled.addListener(() => {
-  reRegisterContentScripts()
-  StorageSync.getSettings().then((sync) => {
-    StorageSync.saveSettings({
-      autoPostWebhookAfterMeeting: sync.autoPostWebhookAfterMeeting !== false,
-      autoDownloadFileAfterMeeting: sync.autoDownloadFileAfterMeeting !== false,
-      operationMode: sync.operationMode === "manual" ? "manual" : "auto",
-      webhookBodyType: sync.webhookBodyType === "advanced" ? "advanced" : "simple",
-    })
-  })
 })

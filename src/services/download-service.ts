@@ -1,4 +1,5 @@
 import type { Meeting } from '../types'
+import { ErrorCode } from '../shared/errors'
 import { StorageLocal } from '../shared/storage-repo'
 import { downloadTranscript, getTranscriptString, getChatMessagesString } from '../background/download'
 
@@ -12,7 +13,7 @@ export const DownloadService = {
   getMeeting: async (index: number): Promise<Meeting> => {
     const meetings = await StorageLocal.getMeetings()
     const meeting = meetings[index]
-    if (!meeting) throw { errorCode: "010", errorMessage: "Meeting at specified index not found" }
+    if (!meeting) throw { errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" }
     return meeting
   },
 }
