@@ -412,7 +412,7 @@
 				console.log("Meet tab navigated away from call — finalizing meeting");
 				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => console.error("finalizeMeeting failed on navigation away:", e)).finally(() => clearTabIdAndApplyUpdate()));
 			}
-		});
+		}).catch(console.error);
 	}
 	chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 		if (!changeInfo.url) return;

@@ -30,6 +30,19 @@
 		extensionStatusJSON: null
 	};
 	//#endregion
+	//#region src/content/constants.ts
+	var bugStatusJson = {
+		status: 400,
+		message: `<strong>meet-transcripts encountered a new error</strong> <br /> Please report it <a href="https://github.com/patrick204nqh/meet-transcripts/issues" target="_blank">here</a>.`
+	};
+	var mutationConfig = {
+		childList: true,
+		attributes: true,
+		subtree: true,
+		characterData: true
+	};
+	var meetingSoftware = "Google Meet";
+	//#endregion
 	//#region src/content/ui.ts
 	var commonCSS = `background: rgb(255 255 255 / 100%);
     backdrop-filter: blur(16px);
@@ -51,14 +64,47 @@
     line-height: 1.5;
     font-family: "Google Sans",Roboto,Arial,sans-serif;
     box-shadow: rgba(0, 0, 0, 0.16) 0px 10px 36px 0px, rgba(0, 0, 0, 0.06) 0px 0px 0px 1px;`;
+	var DOM_POLL_INTERVAL_MS = 250;
+	var DOM_POLL_MAX_ATTEMPTS = 120;
 	function selectElements(selector, text) {
 		const elements = document.querySelectorAll(selector);
 		return Array.prototype.filter.call(elements, (element) => RegExp(text).test(element.textContent ?? ""));
 	}
-	async function waitForElement(selector, text) {
-		if (text) while (!Array.from(document.querySelectorAll(selector)).find((el) => el.textContent === text)) await new Promise((resolve) => requestAnimationFrame(resolve));
-		else while (!document.querySelector(selector)) await new Promise((resolve) => requestAnimationFrame(resolve));
-		return document.querySelector(selector);
+	function waitForElement(selector, text) {
+		return new Promise((resolve) => {
+			const matches = (el) => !text || RegExp(text).test(el.textContent ?? "");
+			const find = () => Array.from(document.querySelectorAll(selector)).find(matches) ?? null;
+			const immediate = find();
+			if (immediate) {
+				resolve(immediate);
+				return;
+			}
+			let attempts = 0;
+			let done = false;
+			const finish = (el) => {
+				if (done) return;
+				done = true;
+				observer.disconnect();
+				clearInterval(timer);
+				resolve(el);
+			};
+			const observer = new MutationObserver(() => {
+				const el = find();
+				if (el) finish(el);
+			});
+			observer.observe(document.body, {
+				childList: true,
+				subtree: true
+			});
+			const timer = setInterval(() => {
+				const el = find();
+				if (el) {
+					finish(el);
+					return;
+				}
+				if (++attempts >= DOM_POLL_MAX_ATTEMPTS) finish(null);
+			}, DOM_POLL_INTERVAL_MS);
+		});
 	}
 	function showNotification(statusJSON) {
 		if (!statusJSON) return;
@@ -111,20 +157,10 @@
 	function logError(code, err) {
 		console.error(`[meet-transcripts] Error ${code}:`, err);
 	}
-	//#endregion
-	//#region src/content/constants.ts
-	var bugStatusJson = {
-		status: 400,
-		message: `<strong>meet-transcripts encountered a new error</strong> <br /> Please report it <a href="https://github.com/patrick204nqh/meet-transcripts/issues" target="_blank">here</a>.`
-	};
-	var reportErrorMessage = "There is a bug in meet-transcripts. Please report it at https://github.com/patrick204nqh/meet-transcripts/issues";
-	var mutationConfig = {
-		childList: true,
-		attributes: true,
-		subtree: true,
-		characterData: true
-	};
-	var meetingSoftware = "Google Meet";
+	function handleContentError(code, err, notify = true) {
+		logError(code, err);
+		if (notify) showNotification(bugStatusJson);
+	}
 	//#endregion
 	//#region src/shared/messages.ts
 	function sendMessage(msg) {
@@ -146,21 +182,26 @@
 	}
 	//#endregion
 	//#region src/content/state-sync.ts
-	function persistStateFields(keys, sendEndMessage) {
-		const objectToSave = {};
-		if (keys.includes("software")) objectToSave.software = meetingSoftware;
-		if (keys.includes("title")) objectToSave.title = state.title;
-		if (keys.includes("startTimestamp")) objectToSave.startTimestamp = state.startTimestamp;
-		if (keys.includes("transcript")) objectToSave.transcript = state.transcript;
-		if (keys.includes("chatMessages")) objectToSave.chatMessages = state.chatMessages;
-		chrome.storage.local.set(objectToSave, () => {
-			pulseStatus();
-			if (sendEndMessage) sendMessage({ type: "meeting_ended" }).then((response) => {
-				if (!response.success) {
-					if (response.error.errorCode === ErrorCode.MEETING_NOT_FOUND) console.error(response.error.errorMessage);
-				}
-			});
+	function buildStorageObject(keys) {
+		const obj = {};
+		if (keys.includes("software")) obj.software = meetingSoftware;
+		if (keys.includes("title")) obj.title = state.title;
+		if (keys.includes("startTimestamp")) obj.startTimestamp = state.startTimestamp;
+		if (keys.includes("transcript")) obj.transcript = state.transcript;
+		if (keys.includes("chatMessages")) obj.chatMessages = state.chatMessages;
+		return obj;
+	}
+	function persistStateFields(keys) {
+		chrome.storage.local.set(buildStorageObject(keys), () => pulseStatus());
+	}
+	async function persistStateAndSignalEnd(keys, reason) {
+		await chrome.storage.local.set(buildStorageObject(keys));
+		pulseStatus();
+		const response = await sendMessage({
+			type: "meeting_ended",
+			reason
 		});
+		if (!response.success && response.error.errorCode === ErrorCode.MEETING_NOT_FOUND) console.error(response.error.errorMessage);
 	}
 	//#endregion
 	//#region src/content/observer/transcript-observer.ts
@@ -170,7 +211,7 @@
 			timestamp: (/* @__PURE__ */ new Date()).toISOString(),
 			text: "[Captions unavailable — tab was not in focus]"
 		});
-		persistStateFields(["transcript"], false);
+		persistStateFields(["transcript"]);
 	}
 	function pushBufferToTranscript() {
 		state.transcript.push({
@@ -178,7 +219,7 @@
 			timestamp: state.timestampBuffer,
 			text: state.transcriptTextBuffer
 		});
-		persistStateFields(["transcript"], false);
+		persistStateFields(["transcript"]);
 	}
 	function transcriptMutationCallback(mutationsList) {
 		mutationsList.forEach((mutation) => {
@@ -219,12 +260,7 @@
 				}
 				console.log("Transcript captured");
 			} catch (err) {
-				console.error(err);
-				if (!state.isTranscriptDomErrorCaptured && !state.hasMeetingEnded) {
-					console.log(reportErrorMessage);
-					showNotification(bugStatusJson);
-					logError("005", err);
-				}
+				if (!state.isTranscriptDomErrorCaptured && !state.hasMeetingEnded) handleContentError("005", err);
 				state.isTranscriptDomErrorCaptured = true;
 			}
 		});
@@ -235,7 +271,7 @@
 		if (!state.chatMessages.some((item) => item.personName === chatBlock.personName && item.text === chatBlock.text)) {
 			console.log("Chat message captured");
 			state.chatMessages.push(chatBlock);
-			persistStateFields(["chatMessages"], false);
+			persistStateFields(["chatMessages"]);
 		}
 	}
 	function chatMessagesMutationCallback(_mutationsList) {
@@ -253,12 +289,7 @@
 				text: chatMessageText
 			});
 		} catch (err) {
-			console.error(err);
-			if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) {
-				console.log(reportErrorMessage);
-				showNotification(bugStatusJson);
-				logError("006", err);
-			}
+			if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) handleContentError("006", err);
 			state.isChatMessagesDomErrorCaptured = true;
 		}
 	}
@@ -290,7 +321,7 @@
 			}, 7e3);
 			function handleMeetingTitleElementChange() {
 				state.title = meetingTitleElement.innerText;
-				persistStateFields(["title"], false);
+				persistStateFields(["title"]);
 			}
 		});
 	}
@@ -317,7 +348,7 @@
 			chrome.runtime.sendMessage({ type: "new_meeting_started" }, () => {});
 			state.hasMeetingStarted = true;
 			state.startTimestamp = (/* @__PURE__ */ new Date()).toISOString();
-			persistStateFields(["startTimestamp"], false);
+			persistStateFields(["startTimestamp"]);
 			updateMeetingTitle();
 			let transcriptObserver;
 			let chatMessagesObserver;
@@ -377,10 +408,8 @@
 					});
 				} else throw new Error("Transcript element not found in DOM");
 			}).catch((err) => {
-				console.error(err);
 				state.isTranscriptDomErrorCaptured = true;
-				showNotification(bugStatusJson);
-				logError("001", err);
+				handleContentError("001", err);
 			});
 			waitForElement(".google-symbols", "chat").then(() => {
 				const chatMessagesButton = selectElements(".google-symbols", "chat")[0];
@@ -396,27 +425,28 @@
 					chatMessagesObserver.observe(targetNode, mutationConfig);
 				} else throw new Error("Chat messages element not found in DOM");
 			}).catch((err) => {
-				console.error(err);
 				state.isChatMessagesDomErrorCaptured = true;
-				showNotification(bugStatusJson);
-				logError("003", err);
+				handleContentError("003", err);
 			});
+			const handleMeetingEnd = (reason) => {
+				if (state.hasMeetingEnded) return;
+				state.hasMeetingEnded = true;
+				transcriptObserver?.disconnect();
+				chatMessagesObserver?.disconnect();
+				captionWatchdog?.disconnect();
+				document.removeEventListener("visibilitychange", onVisibilityChange);
+				window.removeEventListener("pagehide", handlePageHide);
+				if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") pushBufferToTranscript();
+				persistStateAndSignalEnd(["transcript", "chatMessages"], reason).catch(console.error);
+			};
+			const handlePageHide = () => handleMeetingEnd("page_unload");
+			window.addEventListener("pagehide", handlePageHide);
 			try {
 				const clickTarget = selectElements(meetingEndIconData.selector, meetingEndIconData.text)[0]?.parentElement?.parentElement;
 				if (!clickTarget) throw new Error("Call end button element not found in DOM");
-				clickTarget.addEventListener("click", () => {
-					state.hasMeetingEnded = true;
-					transcriptObserver?.disconnect();
-					chatMessagesObserver?.disconnect();
-					captionWatchdog?.disconnect();
-					document.removeEventListener("visibilitychange", onVisibilityChange);
-					if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") pushBufferToTranscript();
-					persistStateFields(["transcript", "chatMessages"], true);
-				});
+				clickTarget.addEventListener("click", () => handleMeetingEnd("user_click"));
 			} catch (err) {
-				console.error(err);
-				showNotification(bugStatusJson);
-				logError("004", err);
+				handleContentError("004", err);
 			}
 		});
 	}
@@ -435,7 +465,7 @@
 			"title",
 			"transcript",
 			"chatMessages"
-		], false);
+		]);
 	});
 	checkExtensionStatus().finally(() => {
 		console.log("Extension status " + state.extensionStatusJSON?.status);
