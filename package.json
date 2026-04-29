@@ -7,7 +7,7 @@
     "build": "vite build",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
-    "pretest": "vite build",
+    "pretest": "vite build --mode test",
     "test": "playwright test",
     "test:smoke": "HEADED=1 playwright test",
     "test:ui": "playwright test --ui"
