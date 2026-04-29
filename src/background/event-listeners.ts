@@ -8,10 +8,42 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     if (tabId === id) {
       console.log("Successfully intercepted tab close")
       StorageLocal.setMeetingTabId("processing").then(() =>
-        MeetingService.finalizeMeeting().finally(() => clearTabIdAndApplyUpdate())
+        MeetingService.finalizeMeeting()
+          .catch((e) => console.error("finalizeMeeting failed on tab close:", e))
+          .finally(() => clearTabIdAndApplyUpdate())
       )
     }
   })
+})
+
+// Active Google Meet call URL pattern: meet.google.com/abc-defg-hij
+const MEET_CALL_URL = /meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}/
+
+/**
+ * Handles the case where the meeting tab navigates away from an active call URL.
+ * Extracted so it can be invoked both from tabs.onUpdated and from a test message.
+ */
+export function handleMeetTabNavigatedAway(tabId: number, newUrl: string): void {
+  StorageLocal.getMeetingTabId().then((id) => {
+    if (id === "processing" || id === null || tabId !== id) return
+
+    // Meet tab navigated away from an active call URL — treat as meeting exit
+    if (!MEET_CALL_URL.test(newUrl)) {
+      console.log("Meet tab navigated away from call — finalizing meeting")
+      StorageLocal.setMeetingTabId("processing").then(() =>
+        MeetingService.finalizeMeeting()
+          .catch((e) => console.error("finalizeMeeting failed on navigation away:", e))
+          .finally(() => clearTabIdAndApplyUpdate())
+      )
+    }
+  }).catch(console.error)
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  // changeInfo.url is only present on the first fire per navigation (when status = "loading")
+  // and only for URLs the extension has host_permissions for (https://meet.google.com/*)
+  if (!changeInfo.url) return
+  handleMeetTabNavigatedAway(tabId, changeInfo.url)
 })
 
 chrome.runtime.onUpdateAvailable.addListener(() => {
@@ -25,7 +57,10 @@ chrome.runtime.onUpdateAvailable.addListener(() => {
   })
 })
 
-chrome.permissions.onAdded.addListener(() => {
+chrome.permissions.onAdded.addListener((permissions) => {
+  if (permissions.permissions?.includes("notifications")) {
+    // Re-register notification click listener when notifications permission is granted
+  }
   setTimeout(() => reRegisterContentScript(), 2000)
 })
 

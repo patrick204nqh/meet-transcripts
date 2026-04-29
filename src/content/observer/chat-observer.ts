@@ -1,7 +1,6 @@
 import type { ChatMessage } from '../../types'
 import { state } from '../state'
-import { bugStatusJson, reportErrorMessage } from '../constants'
-import { showNotification, logError } from '../ui'
+import { handleContentError } from '../ui'
 import { persistStateFields } from '../state-sync'
 
 export function pushUniqueChatBlock(chatBlock: ChatMessage): void {
@@ -12,7 +11,7 @@ export function pushUniqueChatBlock(chatBlock: ChatMessage): void {
   if (!isExisting) {
     console.log("Chat message captured")
     state.chatMessages.push(chatBlock)
-    persistStateFields(["chatMessages"], false)
+    persistStateFields(["chatMessages"])
   }
 }
 
@@ -38,11 +37,8 @@ export function chatMessagesMutationCallback(_mutationsList: MutationRecord[]): 
       pushUniqueChatBlock(chatMessageBlock)
     }
   } catch (err) {
-    console.error(err)
     if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) {
-      console.log(reportErrorMessage)
-      showNotification(bugStatusJson)
-      logError("006", err)
+      handleContentError("006", err)
     }
     state.isChatMessagesDomErrorCaptured = true
   }

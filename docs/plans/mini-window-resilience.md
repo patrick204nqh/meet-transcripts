@@ -1,5 +1,7 @@
 # Plan: Mini Window / Tab-Switch Resilience
 
+> **Status: Implemented.** All steps from this plan landed in `src/content/meeting-session.ts` and `src/content/observer/transcript-observer.ts` — `attachTranscriptObserver`, `captionWatchdog`, `insertGapMarker`, and the `visibilitychange` listener are all in place. Kept for historical context. The follow-up problem of meeting end *not being detected* in mini-window scenarios is addressed in [`2026-04-29-meeting-lifecycle-resilience.md`](./2026-04-29-meeting-lifecycle-resilience.md).
+
 ## Problem
 
 When a user switches away from the Google Meet tab, Meet transitions its UI into a compact

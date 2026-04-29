@@ -1,8 +1,8 @@
-import type { ExtensionMessage } from '../types'
+import type { ExtensionMessage, MeetingEndReason } from '../types'
 import { state } from './state'
-import { mutationConfig, bugStatusJson } from './constants'
-import { selectElements, waitForElement, showNotification, logError } from './ui'
-import { persistStateFields } from './state-sync'
+import { mutationConfig } from './constants'
+import { selectElements, waitForElement, showNotification, handleContentError } from './ui'
+import { persistStateFields, persistStateAndSignalEnd } from './state-sync'
 import { transcriptMutationCallback, pushBufferToTranscript, insertGapMarker } from './observer/transcript-observer'
 import { chatMessagesMutationCallback } from './observer/chat-observer'
 
@@ -32,7 +32,7 @@ export function updateMeetingTitle(): void {
 
     function handleMeetingTitleElementChange(): void {
       state.title = meetingTitleElement.innerText
-      persistStateFields(["title"], false)
+      persistStateFields(["title"])
     }
   })
 }
@@ -58,7 +58,7 @@ export function meetingRoutines(uiType: number): void {
     chrome.runtime.sendMessage(message, () => { })
     state.hasMeetingStarted = true
     state.startTimestamp = new Date().toISOString()
-    persistStateFields(["startTimestamp"], false)
+    persistStateFields(["startTimestamp"])
 
     updateMeetingTitle()
 
@@ -132,10 +132,8 @@ export function meetingRoutines(uiType: number): void {
         }
       })
       .catch((err) => {
-        console.error(err)
         state.isTranscriptDomErrorCaptured = true
-        showNotification(bugStatusJson)
-        logError("001", err)
+        handleContentError("001", err)
       })
 
     // REGISTER CHAT MESSAGES LISTENER
@@ -156,34 +154,37 @@ export function meetingRoutines(uiType: number): void {
         }
       })
       .catch((err) => {
-        console.error(err)
         state.isChatMessagesDomErrorCaptured = true
-        showNotification(bugStatusJson)
-        logError("003", err)
+        handleContentError("003", err)
       })
 
-    // MEETING END
+    // MEETING END — shared teardown called from click, pagehide, or any future exit path
+    const handleMeetingEnd = (reason: MeetingEndReason): void => {
+      if (state.hasMeetingEnded) return
+      state.hasMeetingEnded = true
+      transcriptObserver?.disconnect()
+      chatMessagesObserver?.disconnect()
+      captionWatchdog?.disconnect()
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+      window.removeEventListener("pagehide", handlePageHide)
+
+      if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") {
+        pushBufferToTranscript()
+      }
+      persistStateAndSignalEnd(["transcript", "chatMessages"], reason).catch(console.error)
+    }
+
+    const handlePageHide = (): void => handleMeetingEnd("page_unload")
+    window.addEventListener("pagehide", handlePageHide)
+
     try {
       const endButton = selectElements(meetingEndIconData.selector, meetingEndIconData.text)[0]
       const clickTarget = endButton?.parentElement?.parentElement
       if (!clickTarget) throw new Error("Call end button element not found in DOM")
 
-      clickTarget.addEventListener("click", () => {
-        state.hasMeetingEnded = true
-        transcriptObserver?.disconnect()
-        chatMessagesObserver?.disconnect()
-        captionWatchdog?.disconnect()
-        document.removeEventListener("visibilitychange", onVisibilityChange)
-
-        if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") {
-          pushBufferToTranscript()
-        }
-        persistStateFields(["transcript", "chatMessages"], true)
-      })
+      clickTarget.addEventListener("click", () => handleMeetingEnd("user_click"))
     } catch (err) {
-      console.error(err)
-      showNotification(bugStatusJson)
-      logError("004", err)
+      handleContentError("004", err)
     }
   })
 }

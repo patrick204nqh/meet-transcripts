@@ -1,46 +1,56 @@
 import { defineConfig, build } from 'vite'
 
-function backgroundBuild() {
-  return {
-    name: 'background-build',
-    closeBundle: async () => {
-      await build({
-        configFile: false,
-        build: {
-          lib: {
-            entry: 'src/background/message-handler.ts',
-            formats: ['iife'],
-            name: 'Background',
+export default defineConfig(({ mode }) => {
+  const isDev = mode !== 'production'
+
+  function backgroundBuild() {
+    return {
+      name: 'background-build',
+      closeBundle: async () => {
+        await build({
+          configFile: false,
+          define: {
+            __DEV__: isDev,
           },
-          outDir: 'extension',
-          emptyOutDir: false,
-          minify: false,
-          rollupOptions: {
-            output: {
-              entryFileNames: 'background.js',
+          build: {
+            lib: {
+              entry: 'src/background/message-handler.ts',
+              formats: ['iife'],
+              name: 'Background',
+            },
+            outDir: 'extension',
+            emptyOutDir: false,
+            minify: false,
+            rollupOptions: {
+              output: {
+                entryFileNames: 'background.js',
+              },
             },
           },
-        },
-      })
-    },
+        })
+      },
+    }
   }
-}
 
-export default defineConfig({
-  plugins: [backgroundBuild()],
-  build: {
-    lib: {
-      entry: 'src/content/google-meet.ts',
-      formats: ['iife'],
-      name: 'MeetTranscripts',
+  return {
+    plugins: [backgroundBuild()],
+    define: {
+      __DEV__: isDev,
     },
-    outDir: 'extension',
-    emptyOutDir: false,
-    minify: false,
-    rollupOptions: {
-      output: {
-        entryFileNames: 'google-meet.js',
+    build: {
+      lib: {
+        entry: 'src/content/google-meet.ts',
+        formats: ['iife'],
+        name: 'MeetTranscripts',
+      },
+      outDir: 'extension',
+      emptyOutDir: false,
+      minify: false,
+      rollupOptions: {
+        output: {
+          entryFileNames: 'google-meet.js',
+        },
       },
     },
-  },
+  }
 })

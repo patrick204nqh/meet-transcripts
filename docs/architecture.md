@@ -79,7 +79,7 @@ C4Component
     Container_Boundary(bg, "Background Service Worker") {
         Component(msgHandler, "Message Handler", "message-handler.ts", "Entry point — routes incoming chrome.runtime messages from content script and UI containers")
         Component(lifecycle, "Meeting Lifecycle", "lifecycle.ts", "Clears tab ID and applies deferred extension updates after meeting processing completes")
-        Component(evtListeners, "Event Listeners", "event-listeners.ts", "Handles tab removal, runtime update, permissions, and install events")
+        Component(evtListeners, "Event Listeners", "event-listeners.ts", "Handles tab removal, tab navigation away from call, runtime update, permissions, and install events")
         Component(storeMgr, "Storage Repo", "shared/storage-repo.ts", "Abstracts all chrome.storage.sync and .local reads and writes")
         Component(meetingSvc, "Meeting Service", "services/meeting.ts", "Orchestrates pickup, finalize, and recover meeting use-cases")
         Component(webhookAdp, "Webhook Adapter", "background/webhook.ts", "Builds payload and POSTs to the configured webhook URL; writes status back to storage")
@@ -173,7 +173,14 @@ sequenceDiagram
     CS->>BG: chrome.runtime.sendMessage(chunk)
     BG->>Store: Append chunk to in-progress transcript
 
-    Note over Meet,Out: Meeting ends (tab close / leave)
+    Note over Meet,Out: Meeting ends — three paths converge on finalizeMeeting()
+    alt User clicks "End call" in Meet UI
+        CS->>BG: meeting_ended (reason: user_click)
+    else User closes the Meet tab
+        BG->>BG: chrome.tabs.onRemoved
+    else Meet navigates the tab away from the call URL (e.g. PiP "Leave call")
+        BG->>BG: chrome.tabs.onUpdated (URL no longer matches /meet.google.com/abc-defg-hij/)
+    end
 
     BG->>Store: Read full transcript
     BG->>Out: Download as .txt file

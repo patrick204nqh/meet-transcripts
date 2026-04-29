@@ -199,11 +199,20 @@
 	//#endregion
 	//#region src/background/webhook.ts
 	var notificationClickTargets = /* @__PURE__ */ new Set();
-	chrome.notifications.onClicked.addListener((notificationId) => {
-		if (notificationClickTargets.has(notificationId)) {
-			notificationClickTargets.delete(notificationId);
-			chrome.tabs.create({ url: "meetings.html" });
-		}
+	function registerNotificationClickListener() {
+		if (!chrome.notifications?.onClicked) return;
+		chrome.notifications.onClicked.addListener((notificationId) => {
+			if (notificationClickTargets.has(notificationId)) {
+				notificationClickTargets.delete(notificationId);
+				chrome.tabs.create({ url: "meetings.html" });
+			}
+		});
+	}
+	chrome.permissions.contains({ permissions: ["notifications"] }, (has) => {
+		if (has) registerNotificationClickListener();
+	});
+	chrome.permissions.onAdded.addListener((permissions) => {
+		if (permissions.permissions?.includes("notifications")) registerNotificationClickListener();
 	});
 	async function postTranscriptToWebhook(index) {
 		const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([StorageLocal.getMeetings(), StorageSync.getWebhookSettings()]);
@@ -239,9 +248,9 @@
 				webhookPostStatus: "failed"
 			} : m);
 			await StorageLocal.setMeetings(withFailed);
-			chrome.notifications.create({
+			chrome.notifications?.create({
 				type: "basic",
-				iconUrl: "icon.png",
+				iconUrl: "icons/icon-128.png",
 				title: "Could not post webhook!",
 				message: `HTTP ${response.status} ${response.statusText}. Click to view and retry.`
 			}, (notificationId) => {
@@ -360,9 +369,9 @@
 					}]).then(() => {
 						console.log(`${platform} content script registered successfully.`);
 						if (showNotification) chrome.permissions.contains({ permissions: ["notifications"] }).then((hasNotifyPermission) => {
-							if (hasNotifyPermission) chrome.notifications.create({
+							if (hasNotifyPermission && chrome.notifications) chrome.notifications.create({
 								type: "basic",
-								iconUrl: "icon.png",
+								iconUrl: "icons/icon-128.png",
 								title: "Enabled!",
 								message: "Refresh any existing meeting pages"
 							});
@@ -387,9 +396,27 @@
 		StorageLocal.getMeetingTabId().then((id) => {
 			if (tabId === id) {
 				console.log("Successfully intercepted tab close");
-				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().finally(() => clearTabIdAndApplyUpdate()));
+				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => console.error("finalizeMeeting failed on tab close:", e)).finally(() => clearTabIdAndApplyUpdate()));
 			}
 		});
+	});
+	var MEET_CALL_URL = /meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}/;
+	/**
+	* Handles the case where the meeting tab navigates away from an active call URL.
+	* Extracted so it can be invoked both from tabs.onUpdated and from a test message.
+	*/
+	function handleMeetTabNavigatedAway(tabId, newUrl) {
+		StorageLocal.getMeetingTabId().then((id) => {
+			if (id === "processing" || id === null || tabId !== id) return;
+			if (!MEET_CALL_URL.test(newUrl)) {
+				console.log("Meet tab navigated away from call — finalizing meeting");
+				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => console.error("finalizeMeeting failed on navigation away:", e)).finally(() => clearTabIdAndApplyUpdate()));
+			}
+		}).catch(console.error);
+	}
+	chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+		if (!changeInfo.url) return;
+		handleMeetTabNavigatedAway(tabId, changeInfo.url);
 	});
 	chrome.runtime.onUpdateAvailable.addListener(() => {
 		StorageLocal.getMeetingTabId().then((id) => {
@@ -400,7 +427,8 @@
 			}
 		});
 	});
-	chrome.permissions.onAdded.addListener(() => {
+	chrome.permissions.onAdded.addListener((permissions) => {
+		if (permissions.permissions?.includes("notifications")) {}
 		setTimeout(() => reRegisterContentScript(), 2e3);
 	});
 	chrome.runtime.onInstalled.addListener(() => {
@@ -416,7 +444,10 @@
 	});
 	//#endregion
 	//#region src/background/message-handler.ts
-	var ok = { success: true };
+	var ok = {
+		success: true,
+		data: void 0
+	};
 	var err = (e) => ({
 		success: false,
 		error: e
@@ -434,36 +465,65 @@
 		const msg = raw;
 		console.log(msg.type);
 		if (msg.type === "new_meeting_started") {
-			chrome.tabs.query({
-				active: true,
-				currentWindow: true
-			}, (tabs) => {
-				const tabId = tabs[0]?.id;
-				if (tabId !== void 0) StorageLocal.setMeetingTabId(tabId).then(() => console.log("Meeting tab id saved"));
-			});
-			chrome.action.setBadgeText({ text: "REC" });
-			chrome.action.setBadgeBackgroundColor({ color: "#c0392b" });
+			if (sender.tab?.id !== void 0) StorageLocal.setMeetingTabId(sender.tab.id).then(() => console.log("Meeting tab id saved")).catch(console.error);
+			chrome.action.setBadgeText({ text: "REC" }).catch((e) => console.warn("setBadgeText failed:", e));
+			chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e) => console.warn("setBadgeBgColor failed:", e));
 		}
-		if (msg.type === "meeting_ended") StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))).finally(() => clearTabIdAndApplyUpdate()));
-		if (msg.type === "download_transcript_at_index") isValidIndex(msg.index) ? DownloadService.downloadTranscript(msg.index).then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))) : sendResponse(invalidIndex);
-		if (msg.type === "post_webhook_at_index") isValidIndex(msg.index) ? WebhookService.postWebhook(msg.index).then(() => sendResponse(ok)).catch((e) => {
-			console.error("Webhook retry failed:", e);
-			sendResponse(err(e));
-		}) : sendResponse(invalidIndex);
-		if (msg.type === "recover_last_meeting") MeetingService.recoverMeeting().then((m) => sendResponse({
-			success: true,
-			data: m
-		})).catch((e) => sendResponse(err(e)));
-		if (msg.type === "open_popup") chrome.action.openPopup().then((m) => sendResponse({
-			success: true,
-			data: String(m)
-		})).catch((e) => sendResponse({
-			success: false,
-			error: {
-				errorCode: ErrorCode.POPUP_OPEN_FAILED,
-				errorMessage: String(e)
-			}
-		}));
+		if (msg.type === "meeting_ended") {
+			StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))).finally(() => clearTabIdAndApplyUpdate()));
+			return true;
+		}
+		if (msg.type === "download_transcript_at_index") {
+			isValidIndex(msg.index) ? DownloadService.downloadTranscript(msg.index).then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))) : sendResponse(invalidIndex);
+			return true;
+		}
+		if (msg.type === "post_webhook_at_index") {
+			isValidIndex(msg.index) ? WebhookService.postWebhook(msg.index).then(() => sendResponse(ok)).catch((e) => {
+				console.error("Webhook retry failed:", e);
+				sendResponse(err(e));
+			}) : sendResponse(invalidIndex);
+			return true;
+		}
+		if (msg.type === "recover_last_meeting") {
+			MeetingService.recoverMeeting().then((m) => sendResponse({
+				success: true,
+				data: m
+			})).catch((e) => sendResponse(err(e)));
+			return true;
+		}
+		if (msg.type === "open_popup") {
+			chrome.action.openPopup().then(() => sendResponse(ok)).catch((e) => sendResponse({
+				success: false,
+				error: {
+					errorCode: ErrorCode.POPUP_OPEN_FAILED,
+					errorMessage: String(e)
+				}
+			}));
+			return true;
+		}
+		if (msg.type === "simulate_tab_navigated_away") {
+			handleMeetTabNavigatedAway(msg.tabId, msg.url);
+			sendResponse(ok);
+			return true;
+		}
+		if (msg.type === "get_debug_state") {
+			Promise.all([
+				StorageLocal.getMeetingTabId(),
+				StorageLocal.getMeetings(),
+				StorageLocal.getCurrentMeetingData()
+			]).then(([meetingTabId, meetings, data]) => {
+				sendResponse({
+					success: true,
+					data: {
+						meetingTabId,
+						meetingCount: meetings.length,
+						hasMeetingData: !!data.startTimestamp,
+						lastMeetingStart: data.startTimestamp ?? void 0
+					}
+				});
+			}).catch((e) => sendResponse(err(e)));
+			return true;
+		}
 		return true;
 	});
 	//#endregion
