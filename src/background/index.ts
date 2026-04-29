@@ -8,8 +8,8 @@ import { clearTabIdAndApplyUpdate } from './lifecycle'
 import './event-listeners'
 
 const ok: ExtensionResponse = { success: true }
-const err = (e: ErrorObject): ExtensionResponse => ({ success: false, message: e })
-const invalidIndex: ExtensionResponse = { success: false, message: { errorCode: ErrorCode.INVALID_INDEX, errorMessage: "Invalid index" } }
+const err = (e: ErrorObject): ExtensionResponse => ({ success: false, error: e })
+const invalidIndex: ExtensionResponse = { success: false, error: { errorCode: ErrorCode.INVALID_INDEX, errorMessage: "Invalid index" } }
 const isValidIndex = (i: unknown): i is number => typeof i === "number" && i >= 0
 
 chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
@@ -49,14 +49,14 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
 
   if (msg.type === "recover_last_meeting") {
     MeetingService.recoverMeeting()
-      .then((m) => sendResponse({ success: true, message: m }))
+      .then((m) => sendResponse({ success: true, data: m }))
       .catch((e: ErrorObject) => sendResponse(err(e)))
   }
 
   if (msg.type === "open_popup") {
     chrome.action.openPopup()
-      .then((m) => sendResponse({ success: true, message: String(m) }))
-      .catch((e: unknown) => sendResponse({ success: false, message: String(e) }))
+      .then((m) => sendResponse({ success: true, data: String(m) }))
+      .catch((e: unknown) => sendResponse({ success: false, error: { errorCode: ErrorCode.POPUP_OPEN_FAILED, errorMessage: String(e) } }))
   }
 
   return true

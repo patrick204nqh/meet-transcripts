@@ -1,4 +1,3 @@
-import type { ErrorObject } from '../types'
 import { ErrorCode } from '../shared/errors'
 import { state } from './state'
 import { meetingSoftware as meetingSoftwareConst } from './constants'
@@ -19,9 +18,8 @@ export function persistStateFields(keys: StorageKey[], sendEndMessage: boolean):
     pulseStatus()
     if (sendEndMessage) {
       sendMessage({ type: "meeting_ended" }).then((response) => {
-        if (!response.success && typeof response.message === "object") {
-          const err = response.message as ErrorObject
-          if (err.errorCode === ErrorCode.MEETING_NOT_FOUND) console.error(err.errorMessage)
+        if (!response.success) {
+          if (response.error.errorCode === ErrorCode.MEETING_NOT_FOUND) console.error(response.error.errorMessage)
         }
       })
     }

@@ -7,6 +7,7 @@ export const ErrorCode = {
   EMPTY_TRANSCRIPT: "014",
   INVALID_INDEX: "015",
   NO_HOST_PERMISSION: "016",
+  POPUP_OPEN_FAILED: "017",
 } as const
 
 export type ErrorCodeValue = typeof ErrorCode[keyof typeof ErrorCode]
