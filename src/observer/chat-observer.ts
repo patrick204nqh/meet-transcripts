@@ -2,7 +2,7 @@ import type { ChatMessage } from '../types'
 import { state } from '../state'
 import { bugStatusJson, reportErrorMessage } from '../constants'
 import { showNotification, logError } from '../ui'
-import { overWriteChromeStorage } from '../storage'
+import { persistStateFields } from '../state-sync'
 
 export function pushUniqueChatBlock(chatBlock: ChatMessage): void {
   const isExisting = state.chatMessages.some(item =>
@@ -12,7 +12,7 @@ export function pushUniqueChatBlock(chatBlock: ChatMessage): void {
   if (!isExisting) {
     console.log("Chat message captured")
     state.chatMessages.push(chatBlock)
-    overWriteChromeStorage(["chatMessages"], false)
+    persistStateFields(["chatMessages"], false)
   }
 }
 

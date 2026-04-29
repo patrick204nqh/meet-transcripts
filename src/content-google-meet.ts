@@ -2,7 +2,7 @@ import type { ErrorObject } from './types'
 import { ErrorCode } from './shared/errors'
 import { state } from './state'
 import { waitForElement, showNotification } from './ui'
-import { overWriteChromeStorage, recoverLastMeeting } from './storage'
+import { persistStateFields, recoverLastMeeting } from './state-sync'
 import { checkExtensionStatus, meetingRoutines } from './meeting'
 
 // Attempt to recover last meeting, if any. Abort if it takes more than 2 seconds.
@@ -19,7 +19,7 @@ Promise.race([
     }
   })
   .finally(() => {
-    overWriteChromeStorage(["meetingSoftware", "meetingStartTimestamp", "meetingTitle", "transcript", "chatMessages"], false)
+    persistStateFields(["meetingSoftware", "meetingStartTimestamp", "meetingTitle", "transcript", "chatMessages"], false)
   })
 
 checkExtensionStatus().finally(() => {

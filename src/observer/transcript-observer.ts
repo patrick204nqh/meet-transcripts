@@ -1,7 +1,7 @@
 import { state } from '../state'
 import { mutationConfig, bugStatusJson, reportErrorMessage } from '../constants'
 import { showNotification, logError } from '../ui'
-import { overWriteChromeStorage } from '../storage'
+import { persistStateFields } from '../state-sync'
 
 export function insertGapMarker(): void {
   state.transcript.push({
@@ -9,7 +9,7 @@ export function insertGapMarker(): void {
     timestamp: new Date().toISOString(),
     transcriptText: "[Captions unavailable — tab was not in focus]",
   })
-  overWriteChromeStorage(["transcript"], false)
+  persistStateFields(["transcript"], false)
 }
 
 export function pushBufferToTranscript(): void {
@@ -18,7 +18,7 @@ export function pushBufferToTranscript(): void {
     timestamp: state.timestampBuffer,
     transcriptText: state.transcriptTextBuffer,
   })
-  overWriteChromeStorage(["transcript"], false)
+  persistStateFields(["transcript"], false)
 }
 
 export function transcriptMutationCallback(mutationsList: MutationRecord[]): void {

@@ -2,7 +2,7 @@ import type { ExtensionMessage } from './types'
 import { state } from './state'
 import { mutationConfig, bugStatusJson } from './constants'
 import { selectElements, waitForElement, showNotification, logError } from './ui'
-import { overWriteChromeStorage } from './storage'
+import { persistStateFields } from './state-sync'
 import { transcriptMutationCallback, pushBufferToTranscript, insertGapMarker } from './observer/transcript-observer'
 import { chatMessagesMutationCallback } from './observer/chat-observer'
 
@@ -32,7 +32,7 @@ export function updateMeetingTitle(): void {
 
     function handleMeetingTitleElementChange(): void {
       state.meetingTitle = meetingTitleElement.innerText
-      overWriteChromeStorage(["meetingTitle"], false)
+      persistStateFields(["meetingTitle"], false)
     }
   })
 }
@@ -58,7 +58,7 @@ export function meetingRoutines(uiType: number): void {
     chrome.runtime.sendMessage(message, () => { })
     state.hasMeetingStarted = true
     state.meetingStartTimestamp = new Date().toISOString()
-    overWriteChromeStorage(["meetingStartTimestamp"], false)
+    persistStateFields(["meetingStartTimestamp"], false)
 
     updateMeetingTitle()
 
@@ -178,7 +178,7 @@ export function meetingRoutines(uiType: number): void {
         if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") {
           pushBufferToTranscript()
         }
-        overWriteChromeStorage(["transcript", "chatMessages"], true)
+        persistStateFields(["transcript", "chatMessages"], true)
       })
     } catch (err) {
       console.error(err)
