@@ -1,8 +1,8 @@
 import type { Meeting } from '../types'
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
-import { DownloadService } from './download-service'
-import { WebhookService } from './webhook-service'
+import { DownloadService } from './download'
+import { WebhookService } from './webhook'
 
 export async function pickupLastMeeting(): Promise<string> {
   const data = await StorageLocal.getCurrentMeetingData()
