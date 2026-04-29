@@ -36,7 +36,7 @@ export function handleMeetTabNavigatedAway(tabId: number, newUrl: string): void 
           .finally(() => clearTabIdAndApplyUpdate())
       )
     }
-  })
+  }).catch(console.error)
 }
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {

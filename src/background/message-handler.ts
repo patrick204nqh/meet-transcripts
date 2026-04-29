@@ -80,6 +80,10 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
     // Test-only: directly invokes the tabs.onUpdated handler logic for the given tab ID and URL.
     // Needed because headless Chrome cannot navigate to external URLs, so changeInfo.url is never
     // populated by actual tab navigation in offline test environments.
+    if (!__DEV__) {
+      sendResponse(err({ errorCode: "999", errorMessage: "simulate_tab_navigated_away is dev-only" }))
+      return true
+    }
     handleMeetTabNavigatedAway(msg.tabId, msg.url)
     sendResponse(ok)
     return true
