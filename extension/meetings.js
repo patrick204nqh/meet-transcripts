@@ -2,6 +2,11 @@
 /// <reference path="../types/chrome.d.ts" />
 /// <reference path="../types/index.js" />
 
+const ErrorCode = {
+  NO_MEETINGS: "013",
+  EMPTY_TRANSCRIPT: "014",
+}
+
 let isMeetingsTableExpanded = false
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -49,7 +54,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 else {
                     const parsedError = /** @type {ErrorObject} */ (response.message)
-                    if (parsedError.errorCode === "013" || parsedError.errorCode === "014") {
+                    if (parsedError.errorCode === ErrorCode.NO_MEETINGS || parsedError.errorCode === ErrorCode.EMPTY_TRANSCRIPT) {
                         alert("No unprocessed meetings found.")
                     }
                     else {
@@ -205,8 +210,8 @@ function loadMeetings() {
                 // Loop through the array in reverse order to list latest meeting first
                 for (let i = meetings.length - 1; i >= 0; i--) {
                     const meeting = meetings[i]
-                    const timestamp = new Date(meeting.meetingStartTimestamp).toLocaleString()
-                    const durationString = getDuration(meeting.meetingStartTimestamp, meeting.meetingEndTimestamp)
+                    const timestamp = new Date(meeting.startTimestamp).toLocaleString()
+                    const durationString = getDuration(meeting.startTimestamp, meeting.endTimestamp)
 
                     const row = document.createElement("tr")
 
@@ -217,13 +222,13 @@ function loadMeetings() {
                     titleDiv.className = "meeting-title"
                     titleDiv.dataset.index = String(i)
                     titleDiv.title = "Rename"
-                    titleDiv.textContent = meeting.meetingTitle || meeting.title || "Google Meet call"
+                    titleDiv.textContent = meeting.title || "Google Meet call"
                     tdTitle.appendChild(titleDiv)
                     row.appendChild(tdTitle)
 
                     // Col 2: meeting software
                     const tdSoftware = document.createElement("td")
-                    tdSoftware.textContent = meeting.meetingSoftware || ""
+                    tdSoftware.textContent = meeting.software || ""
                     row.appendChild(tdSoftware)
 
                     // Col 3: timestamp · duration
@@ -301,7 +306,7 @@ function loadMeetings() {
                     titleDiv.addEventListener("blur", function () {
                         const updatedMeeting = /** @type {Meeting} */ {
                             ...meeting,
-                            meetingTitle: titleDiv.innerText
+                            title: titleDiv.innerText
                         }
                         meetings[i] = updatedMeeting
                         chrome.storage.local.set({ meetings: meetings }, function () {
@@ -392,11 +397,11 @@ function loadMeetings() {
 
 // Format duration between two timestamps, specified in milliseconds elapsed since the epoch
 /**
- * @param {string} meetingStartTimestamp - ISO timestamp
- * @param {string} meetingEndTimestamp - ISO timestamp
+ * @param {string} startTimestamp - ISO timestamp
+ * @param {string} endTimestamp - ISO timestamp
  */
-function getDuration(meetingStartTimestamp, meetingEndTimestamp) {
-    const duration = new Date(meetingEndTimestamp).getTime() - new Date(meetingStartTimestamp).getTime()
+function getDuration(startTimestamp, endTimestamp) {
+    const duration = new Date(endTimestamp).getTime() - new Date(startTimestamp).getTime()
     const durationMinutes = Math.round(duration / (1000 * 60))
     const durationHours = Math.floor(durationMinutes / 60)
     const remainingMinutes = durationMinutes % 60

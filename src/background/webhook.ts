@@ -24,7 +24,7 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 export async function postTranscriptToWebhook(index: number): Promise<string> {
   const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([
     StorageLocal.getMeetings(),
-    StorageSync.getWebhookConfig(),
+    StorageSync.getWebhookSettings(),
   ])
 
   if (!webhookUrl) throw { errorCode: ErrorCode.NO_WEBHOOK_URL, errorMessage: "No webhook URL configured" }
@@ -40,19 +40,19 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
   const webhookData: WebhookBody = bodyType === "advanced"
     ? {
         webhookBodyType: "advanced",
-        meetingSoftware: meeting.meetingSoftware || "",
-        meetingTitle: meeting.meetingTitle || "",
-        meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toISOString(),
-        meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toISOString(),
+        software: meeting.software || "",
+        title: meeting.title || "",
+        startTimestamp: new Date(meeting.startTimestamp).toISOString(),
+        endTimestamp: new Date(meeting.endTimestamp).toISOString(),
         transcript: meeting.transcript,
         chatMessages: meeting.chatMessages,
       }
     : {
         webhookBodyType: "simple",
-        meetingSoftware: meeting.meetingSoftware || "",
-        meetingTitle: meeting.meetingTitle || "",
-        meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
-        meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+        software: meeting.software || "",
+        title: meeting.title || "",
+        startTimestamp: new Date(meeting.startTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+        endTimestamp: new Date(meeting.endTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
         transcript: getTranscriptString(meeting.transcript),
         chatMessages: getChatMessagesString(meeting.chatMessages),
       }
@@ -65,7 +65,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
 
   if (!response.ok) {
     meetings[index].webhookPostStatus = "failed"
-    await StorageLocal.saveMeetings(meetings)
+    await StorageLocal.setMeetings(meetings)
     chrome.notifications.create({
       type: "basic",
       iconUrl: "icon.png",
@@ -78,6 +78,6 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
   }
 
   meetings[index].webhookPostStatus = "successful"
-  await StorageLocal.saveMeetings(meetings)
+  await StorageLocal.setMeetings(meetings)
   return "Webhook posted successfully"
 }

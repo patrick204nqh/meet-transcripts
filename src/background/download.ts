@@ -14,14 +14,14 @@ const timeFormat: Intl.DateTimeFormatOptions = {
 export function getTranscriptString(transcript: TranscriptBlock[]): string {
   if (transcript.length === 0) return ""
   return transcript.map(block =>
-    `${block.personName} (${new Date(block.timestamp).toLocaleString("default", timeFormat).toUpperCase()})\n${block.transcriptText}\n\n`
+    `${block.personName} (${new Date(block.timestamp).toLocaleString("default", timeFormat).toUpperCase()})\n${block.text}\n\n`
   ).join("")
 }
 
 export function getChatMessagesString(chatMessages: ChatMessage[]): string {
   if (chatMessages.length === 0) return ""
   return chatMessages.map(msg =>
-    `${msg.personName} (${new Date(msg.timestamp).toLocaleString("default", timeFormat).toUpperCase()})\n${msg.chatMessageText}\n\n`
+    `${msg.personName} (${new Date(msg.timestamp).toLocaleString("default", timeFormat).toUpperCase()})\n${msg.text}\n\n`
   ).join("")
 }
 
@@ -35,13 +35,13 @@ export async function downloadTranscript(index: number, _isWebhookEnabled: boole
   const meeting = meetings[index]
   const invalidFilenameRegex = /[:?"*<>|~/\\\u{1}-\u{1f}\u{7f}\u{80}-\u{9f}\p{Cf}\p{Cn}]|^[.\u{0}\p{Zl}\p{Zp}\p{Zs}]|[.\u{0}\p{Zl}\p{Zp}\p{Zs}]$|^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?=\.|$)/gui
   let sanitisedTitle = "Meeting"
-  if (meeting.meetingTitle) {
-    sanitisedTitle = meeting.meetingTitle.replaceAll(invalidFilenameRegex, "_")
+  if (meeting.title) {
+    sanitisedTitle = meeting.title.replaceAll(invalidFilenameRegex, "_")
   }
 
-  const timestamp = new Date(meeting.meetingStartTimestamp)
+  const timestamp = new Date(meeting.startTimestamp)
   const formattedTimestamp = timestamp.toLocaleString("default", timeFormat).replace(/[/:]/g, "-")
-  const prefix = meeting.meetingSoftware ? `${meeting.meetingSoftware} transcript` : "Transcript"
+  const prefix = meeting.software ? `${meeting.software} transcript` : "Transcript"
   const fileName = `meet-transcripts/${prefix}-${sanitisedTitle} at ${formattedTimestamp} on.txt`
 
   let content = getTranscriptString(meeting.transcript)

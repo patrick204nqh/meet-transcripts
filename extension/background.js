@@ -12,29 +12,64 @@
 	};
 	//#endregion
 	//#region src/shared/storage-repo.ts
+	function migrateTranscriptBlock(raw) {
+		return {
+			personName: raw.personName,
+			timestamp: raw.timestamp,
+			text: raw.text ?? raw.transcriptText ?? ""
+		};
+	}
+	function migrateChatMessage(raw) {
+		return {
+			personName: raw.personName,
+			timestamp: raw.timestamp,
+			text: raw.text ?? raw.chatMessageText ?? ""
+		};
+	}
+	function migrateMeeting(raw) {
+		return {
+			software: raw.software ?? raw.meetingSoftware,
+			title: raw.title ?? raw.meetingTitle,
+			startTimestamp: raw.startTimestamp ?? raw.meetingStartTimestamp,
+			endTimestamp: raw.endTimestamp ?? raw.meetingEndTimestamp,
+			transcript: (raw.transcript ?? []).map(migrateTranscriptBlock),
+			chatMessages: (raw.chatMessages ?? []).map(migrateChatMessage),
+			webhookPostStatus: raw.webhookPostStatus ?? "new"
+		};
+	}
 	var StorageLocal = {
 		getMeetings: async () => {
-			return (await chrome.storage.local.get(["meetings"])).meetings ?? [];
+			return ((await chrome.storage.local.get(["meetings"])).meetings ?? []).map(migrateMeeting);
 		},
-		saveMeetings: (meetings) => chrome.storage.local.set({ meetings }),
+		setMeetings: (meetings) => chrome.storage.local.set({ meetings }),
 		getMeetingTabId: async () => {
 			return (await chrome.storage.local.get(["meetingTabId"])).meetingTabId ?? null;
 		},
 		setMeetingTabId: (id) => chrome.storage.local.set({ meetingTabId: id }),
 		getCurrentMeetingData: async () => {
-			return await chrome.storage.local.get([
+			const raw = await chrome.storage.local.get([
+				"software",
+				"title",
+				"startTimestamp",
+				"transcript",
+				"chatMessages",
 				"meetingSoftware",
 				"meetingTitle",
-				"meetingStartTimestamp",
-				"transcript",
-				"chatMessages"
+				"meetingStartTimestamp"
 			]);
+			return {
+				software: raw.software ?? raw.meetingSoftware,
+				title: raw.title ?? raw.meetingTitle,
+				startTimestamp: raw.startTimestamp ?? raw.meetingStartTimestamp,
+				transcript: raw.transcript,
+				chatMessages: raw.chatMessages
+			};
 		},
 		setCurrentMeetingData: (data) => chrome.storage.local.set(data),
-		isDeferredUpdateAvailable: async () => {
-			return !!(await chrome.storage.local.get(["isDeferredUpdatedAvailable"])).isDeferredUpdatedAvailable;
+		getDeferredUpdatePending: async () => {
+			return !!(await chrome.storage.local.get(["isDeferredUpdateAvailable"])).isDeferredUpdateAvailable;
 		},
-		setDeferredUpdate: (value) => chrome.storage.local.set({ isDeferredUpdatedAvailable: value })
+		setDeferredUpdate: (value) => chrome.storage.local.set({ isDeferredUpdateAvailable: value })
 	};
 	var StorageSync = {
 		getSettings: async () => {
@@ -46,11 +81,11 @@
 				"webhookUrl"
 			]);
 		},
-		saveSettings: (settings) => chrome.storage.sync.set(settings),
-		getWebhookConfig: async () => {
+		setSettings: (settings) => chrome.storage.sync.set(settings),
+		getWebhookSettings: async () => {
 			return await chrome.storage.sync.get(["webhookUrl", "webhookBodyType"]);
 		},
-		getDownloadConfig: async () => {
+		getAutoActionSettings: async () => {
 			return await chrome.storage.sync.get([
 				"webhookUrl",
 				"autoPostWebhookAfterMeeting",
@@ -70,11 +105,11 @@
 	};
 	function getTranscriptString(transcript) {
 		if (transcript.length === 0) return "";
-		return transcript.map((block) => `${block.personName} (${new Date(block.timestamp).toLocaleString("default", timeFormat$1).toUpperCase()})\n${block.transcriptText}\n\n`).join("");
+		return transcript.map((block) => `${block.personName} (${new Date(block.timestamp).toLocaleString("default", timeFormat$1).toUpperCase()})\n${block.text}\n\n`).join("");
 	}
 	function getChatMessagesString(chatMessages) {
 		if (chatMessages.length === 0) return "";
-		return chatMessages.map((msg) => `${msg.personName} (${new Date(msg.timestamp).toLocaleString("default", timeFormat$1).toUpperCase()})\n${msg.chatMessageText}\n\n`).join("");
+		return chatMessages.map((msg) => `${msg.personName} (${new Date(msg.timestamp).toLocaleString("default", timeFormat$1).toUpperCase()})\n${msg.text}\n\n`).join("");
 	}
 	async function downloadTranscript(index, _isWebhookEnabled) {
 		const meetings = await StorageLocal.getMeetings();
@@ -85,9 +120,9 @@
 		const meeting = meetings[index];
 		const invalidFilenameRegex = /[:?"*<>|~/\\\u{1}-\u{1f}\u{7f}\u{80}-\u{9f}\p{Cf}\p{Cn}]|^[.\u{0}\p{Zl}\p{Zp}\p{Zs}]|[.\u{0}\p{Zl}\p{Zp}\p{Zs}]$|^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?=\.|$)/giu;
 		let sanitisedTitle = "Meeting";
-		if (meeting.meetingTitle) sanitisedTitle = meeting.meetingTitle.replaceAll(invalidFilenameRegex, "_");
-		const formattedTimestamp = new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat$1).replace(/[/:]/g, "-");
-		const fileName = `meet-transcripts/${meeting.meetingSoftware ? `${meeting.meetingSoftware} transcript` : "Transcript"}-${sanitisedTitle} at ${formattedTimestamp} on.txt`;
+		if (meeting.title) sanitisedTitle = meeting.title.replaceAll(invalidFilenameRegex, "_");
+		const formattedTimestamp = new Date(meeting.startTimestamp).toLocaleString("default", timeFormat$1).replace(/[/:]/g, "-");
+		const fileName = `meet-transcripts/${meeting.software ? `${meeting.software} transcript` : "Transcript"}-${sanitisedTitle} at ${formattedTimestamp} on.txt`;
 		let content = getTranscriptString(meeting.transcript);
 		content += `\n\n---------------\nCHAT MESSAGES\n---------------\n\n`;
 		content += getChatMessagesString(meeting.chatMessages);
@@ -140,7 +175,7 @@
 		}
 	});
 	async function postTranscriptToWebhook(index) {
-		const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([StorageLocal.getMeetings(), StorageSync.getWebhookConfig()]);
+		const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([StorageLocal.getMeetings(), StorageSync.getWebhookSettings()]);
 		if (!webhookUrl) throw {
 			errorCode: ErrorCode.NO_WEBHOOK_URL,
 			errorMessage: "No webhook URL configured"
@@ -158,18 +193,18 @@
 		const meeting = meetings[index];
 		const webhookData = (webhookBodyType === "advanced" ? "advanced" : "simple") === "advanced" ? {
 			webhookBodyType: "advanced",
-			meetingSoftware: meeting.meetingSoftware || "",
-			meetingTitle: meeting.meetingTitle || "",
-			meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toISOString(),
-			meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toISOString(),
+			software: meeting.software || "",
+			title: meeting.title || "",
+			startTimestamp: new Date(meeting.startTimestamp).toISOString(),
+			endTimestamp: new Date(meeting.endTimestamp).toISOString(),
 			transcript: meeting.transcript,
 			chatMessages: meeting.chatMessages
 		} : {
 			webhookBodyType: "simple",
-			meetingSoftware: meeting.meetingSoftware || "",
-			meetingTitle: meeting.meetingTitle || "",
-			meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
-			meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+			software: meeting.software || "",
+			title: meeting.title || "",
+			startTimestamp: new Date(meeting.startTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+			endTimestamp: new Date(meeting.endTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
 			transcript: getTranscriptString(meeting.transcript),
 			chatMessages: getChatMessagesString(meeting.chatMessages)
 		};
@@ -185,7 +220,7 @@
 		});
 		if (!response.ok) {
 			meetings[index].webhookPostStatus = "failed";
-			await StorageLocal.saveMeetings(meetings);
+			await StorageLocal.setMeetings(meetings);
 			chrome.notifications.create({
 				type: "basic",
 				iconUrl: "icon.png",
@@ -200,14 +235,14 @@
 			};
 		}
 		meetings[index].webhookPostStatus = "successful";
-		await StorageLocal.saveMeetings(meetings);
+		await StorageLocal.setMeetings(meetings);
 		return "Webhook posted successfully";
 	}
 	//#endregion
 	//#region src/background/meeting-storage.ts
-	async function pickupLastMeetingFromStorage() {
+	async function pickupLastMeeting() {
 		const data = await StorageLocal.getCurrentMeetingData();
-		if (!data.meetingStartTimestamp) throw {
+		if (!data.startTimestamp) throw {
 			errorCode: ErrorCode.NO_MEETINGS,
 			errorMessage: "No meetings found. May be attend one?"
 		};
@@ -216,10 +251,10 @@
 			errorMessage: "Empty transcript and empty chatMessages"
 		};
 		const newEntry = {
-			meetingSoftware: data.meetingSoftware ?? "",
-			meetingTitle: data.meetingTitle,
-			meetingStartTimestamp: data.meetingStartTimestamp,
-			meetingEndTimestamp: (/* @__PURE__ */ new Date()).toISOString(),
+			software: data.software ?? "",
+			title: data.title,
+			startTimestamp: data.startTimestamp,
+			endTimestamp: (/* @__PURE__ */ new Date()).toISOString(),
 			transcript: data.transcript ?? [],
 			chatMessages: data.chatMessages ?? [],
 			webhookPostStatus: "new"
@@ -227,14 +262,14 @@
 		let meetings = await StorageLocal.getMeetings();
 		meetings.push(newEntry);
 		if (meetings.length > 10) meetings = meetings.slice(-10);
-		await StorageLocal.saveMeetings(meetings);
+		await StorageLocal.setMeetings(meetings);
 		console.log("Last meeting picked up");
 		return "Last meeting picked up";
 	}
-	async function processLastMeeting() {
-		await pickupLastMeetingFromStorage();
+	async function finalizeMeeting() {
+		await pickupLastMeeting();
 		const meetings = await StorageLocal.getMeetings();
-		const sync = await StorageSync.getDownloadConfig();
+		const sync = await StorageSync.getAutoActionSettings();
 		const lastIndex = meetings.length - 1;
 		const promises = [];
 		if (sync.autoDownloadFileAfterMeeting) promises.push(downloadTranscript(lastIndex, !!(sync.webhookUrl && sync.autoPostWebhookAfterMeeting)));
@@ -244,13 +279,13 @@
 	}
 	async function recoverLastMeeting() {
 		const [meetings, data] = await Promise.all([StorageLocal.getMeetings(), StorageLocal.getCurrentMeetingData()]);
-		if (!data.meetingStartTimestamp) throw {
+		if (!data.startTimestamp) throw {
 			errorCode: ErrorCode.NO_MEETINGS,
 			errorMessage: "No meetings found. May be attend one?"
 		};
 		const lastSaved = meetings.length > 0 ? meetings[meetings.length - 1] : void 0;
-		if (!lastSaved || data.meetingStartTimestamp !== lastSaved.meetingStartTimestamp) {
-			await processLastMeeting();
+		if (!lastSaved || data.startTimestamp !== lastSaved.startTimestamp) {
+			await finalizeMeeting();
 			return "Recovered last meeting to the best possible extent";
 		}
 		return "No recovery needed";
@@ -258,14 +293,14 @@
 	//#endregion
 	//#region src/services/meeting-service.ts
 	var MeetingService = {
-		finalizeMeeting: () => processLastMeeting(),
+		finalizeMeeting: () => finalizeMeeting(),
 		recoverMeeting: () => recoverLastMeeting(),
-		pickupFromStorage: () => pickupLastMeetingFromStorage()
+		pickupLastMeeting: () => pickupLastMeeting()
 	};
 	//#endregion
 	//#region src/services/download-service.ts
 	var DownloadService = {
-		download: async (index) => downloadTranscript(index, false),
+		downloadTranscript: async (index) => downloadTranscript(index, false),
 		formatTranscript: (meeting) => getTranscriptString(meeting.transcript),
 		formatChatMessages: (meeting) => getChatMessagesString(meeting.chatMessages),
 		getMeeting: async (index) => {
@@ -279,14 +314,14 @@
 	};
 	//#endregion
 	//#region src/services/webhook-service.ts
-	var WebhookService = { post: (index) => postTranscriptToWebhook(index) };
+	var WebhookService = { postWebhook: (index) => postTranscriptToWebhook(index) };
 	//#endregion
 	//#region src/background/lifecycle.ts
 	async function clearTabIdAndApplyUpdate() {
 		chrome.action.setBadgeText({ text: "" });
 		await StorageLocal.setMeetingTabId(null);
 		console.log("Meeting tab id cleared for next meeting");
-		if (await StorageLocal.isDeferredUpdateAvailable()) {
+		if (await StorageLocal.getDeferredUpdatePending()) {
 			console.log("Applying deferred update");
 			await StorageLocal.setDeferredUpdate(false);
 			chrome.runtime.reload();
@@ -339,7 +374,7 @@
 			});
 		});
 	}
-	function reRegisterContentScripts() {
+	function reRegisterContentScript() {
 		registerContentScript("google_meet", false).catch((error) => {
 			console.log(error);
 		});
@@ -364,12 +399,12 @@
 		});
 	});
 	chrome.permissions.onAdded.addListener(() => {
-		setTimeout(() => reRegisterContentScripts(), 2e3);
+		setTimeout(() => reRegisterContentScript(), 2e3);
 	});
 	chrome.runtime.onInstalled.addListener(() => {
-		reRegisterContentScripts();
+		reRegisterContentScript();
 		StorageSync.getSettings().then((sync) => {
-			StorageSync.saveSettings({
+			StorageSync.setSettings({
 				autoPostWebhookAfterMeeting: sync.autoPostWebhookAfterMeeting !== false,
 				autoDownloadFileAfterMeeting: sync.autoDownloadFileAfterMeeting !== false,
 				operationMode: sync.operationMode === "manual" ? "manual" : "auto",
@@ -408,8 +443,8 @@
 			chrome.action.setBadgeBackgroundColor({ color: "#c0392b" });
 		}
 		if (msg.type === "meeting_ended") StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))).finally(() => clearTabIdAndApplyUpdate()));
-		if (msg.type === "download_transcript_at_index") isValidIndex(msg.index) ? DownloadService.download(msg.index).then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))) : sendResponse(invalidIndex);
-		if (msg.type === "post_webhook_at_index") isValidIndex(msg.index) ? WebhookService.post(msg.index).then(() => sendResponse(ok)).catch((e) => {
+		if (msg.type === "download_transcript_at_index") isValidIndex(msg.index) ? DownloadService.downloadTranscript(msg.index).then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))) : sendResponse(invalidIndex);
+		if (msg.type === "post_webhook_at_index") isValidIndex(msg.index) ? WebhookService.postWebhook(msg.index).then(() => sendResponse(ok)).catch((e) => {
 			console.error("Webhook retry failed:", e);
 			sendResponse(err(e));
 		}) : sendResponse(invalidIndex);

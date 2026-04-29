@@ -1,17 +1,18 @@
 import type { ChatMessage } from '../types'
-import { state, extensionStatusJSON_bug, reportErrorMessage } from '../state'
+import { state } from '../state'
+import { bugStatusJson, reportErrorMessage } from '../constants'
 import { showNotification, logError } from '../ui'
-import { overWriteChromeStorage } from '../storage'
+import { persistStateFields } from '../state-sync'
 
 export function pushUniqueChatBlock(chatBlock: ChatMessage): void {
   const isExisting = state.chatMessages.some(item =>
     item.personName === chatBlock.personName &&
-    item.chatMessageText === chatBlock.chatMessageText
+    item.text === chatBlock.text
   )
   if (!isExisting) {
     console.log("Chat message captured")
     state.chatMessages.push(chatBlock)
-    overWriteChromeStorage(["chatMessages"], false)
+    persistStateFields(["chatMessages"], false)
   }
 }
 
@@ -33,14 +34,14 @@ export function chatMessagesMutationCallback(_mutationsList: MutationRecord[]): 
     const chatMessageText = (chatMessageElement?.lastChild?.lastChild?.firstChild?.firstChild?.firstChild as Element | null)?.textContent ?? null
 
     if (personName && chatMessageText) {
-      const chatMessageBlock: ChatMessage = { personName, timestamp, chatMessageText }
+      const chatMessageBlock: ChatMessage = { personName, timestamp, text: chatMessageText }
       pushUniqueChatBlock(chatMessageBlock)
     }
   } catch (err) {
     console.error(err)
     if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) {
       console.log(reportErrorMessage)
-      showNotification(extensionStatusJSON_bug)
+      showNotification(bugStatusJson)
       logError("006", err)
     }
     state.isChatMessagesDomErrorCaptured = true

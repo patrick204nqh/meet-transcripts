@@ -1,7 +1,8 @@
 import type { ExtensionMessage } from './types'
-import { state, mutationConfig, extensionStatusJSON_bug } from './state'
+import { state } from './state'
+import { mutationConfig, bugStatusJson } from './constants'
 import { selectElements, waitForElement, showNotification, logError } from './ui'
-import { overWriteChromeStorage } from './storage'
+import { persistStateFields } from './state-sync'
 import { transcriptMutationCallback, pushBufferToTranscript, insertGapMarker } from './observer/transcript-observer'
 import { chatMessagesMutationCallback } from './observer/chat-observer'
 
@@ -30,8 +31,8 @@ export function updateMeetingTitle(): void {
     }, 7000)
 
     function handleMeetingTitleElementChange(): void {
-      state.meetingTitle = meetingTitleElement.innerText
-      overWriteChromeStorage(["meetingTitle"], false)
+      state.title = meetingTitleElement.innerText
+      persistStateFields(["title"], false)
     }
   })
 }
@@ -56,8 +57,8 @@ export function meetingRoutines(uiType: number): void {
     const message: ExtensionMessage = { type: "new_meeting_started" }
     chrome.runtime.sendMessage(message, () => { })
     state.hasMeetingStarted = true
-    state.meetingStartTimestamp = new Date().toISOString()
-    overWriteChromeStorage(["meetingStartTimestamp"], false)
+    state.startTimestamp = new Date().toISOString()
+    persistStateFields(["startTimestamp"], false)
 
     updateMeetingTitle()
 
@@ -133,7 +134,7 @@ export function meetingRoutines(uiType: number): void {
       .catch((err) => {
         console.error(err)
         state.isTranscriptDomErrorCaptured = true
-        showNotification(extensionStatusJSON_bug)
+        showNotification(bugStatusJson)
         logError("001", err)
       })
 
@@ -157,7 +158,7 @@ export function meetingRoutines(uiType: number): void {
       .catch((err) => {
         console.error(err)
         state.isChatMessagesDomErrorCaptured = true
-        showNotification(extensionStatusJSON_bug)
+        showNotification(bugStatusJson)
         logError("003", err)
       })
 
@@ -177,11 +178,11 @@ export function meetingRoutines(uiType: number): void {
         if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") {
           pushBufferToTranscript()
         }
-        overWriteChromeStorage(["transcript", "chatMessages"], true)
+        persistStateFields(["transcript", "chatMessages"], true)
       })
     } catch (err) {
       console.error(err)
-      showNotification(extensionStatusJSON_bug)
+      showNotification(bugStatusJson)
       logError("004", err)
     }
   })

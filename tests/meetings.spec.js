@@ -2,28 +2,28 @@ import { test, expect } from './fixtures/extension.js';
 
 const MOCK_MEETINGS = [
   {
-    meetingSoftware: 'Google Meet',
-    meetingTitle: 'Q2 Product Review',
-    meetingStartTimestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    meetingEndTimestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    software: 'Google Meet',
+    title: 'Q2 Product Review',
+    startTimestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    endTimestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     transcript: [],
     chatMessages: [],
     webhookPostStatus: 'successful',
   },
   {
-    meetingSoftware: 'Google Meet',
-    meetingTitle: '1:1 with Manager',
-    meetingStartTimestamp: new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString(),
-    meetingEndTimestamp: new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString(),
+    software: 'Google Meet',
+    title: '1:1 with Manager',
+    startTimestamp: new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString(),
+    endTimestamp: new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString(),
     transcript: [],
     chatMessages: [],
     webhookPostStatus: 'failed',
   },
   {
-    meetingSoftware: 'Google Meet',
-    meetingTitle: 'Design Review',
-    meetingStartTimestamp: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-    meetingEndTimestamp: new Date(Date.now() - 70.5 * 60 * 60 * 1000).toISOString(),
+    software: 'Google Meet',
+    title: 'Design Review',
+    startTimestamp: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
+    endTimestamp: new Date(Date.now() - 70.5 * 60 * 60 * 1000).toISOString(),
     transcript: [],
     chatMessages: [],
     webhookPostStatus: 'new',
@@ -154,7 +154,7 @@ test.describe('Meetings page', () => {
     await page.goto(`chrome-extension://${extensionId}/meetings.html`);
     await seedMeetings(page, [{
       ...MOCK_MEETINGS[0],
-      meetingTitle: xssPayload,
+      title: xssPayload,
     }]);
     // Title must appear as literal text, not trigger the onerror handler
     await expect(page.locator('.meeting-title').first()).toHaveText(xssPayload);

@@ -4,10 +4,10 @@ import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { downloadTranscript } from './download'
 import { postTranscriptToWebhook } from './webhook'
 
-export async function pickupLastMeetingFromStorage(): Promise<string> {
+export async function pickupLastMeeting(): Promise<string> {
   const data = await StorageLocal.getCurrentMeetingData()
 
-  if (!data.meetingStartTimestamp) {
+  if (!data.startTimestamp) {
     throw { errorCode: ErrorCode.NO_MEETINGS, errorMessage: "No meetings found. May be attend one?" }
   }
   if (!data.transcript?.length && !data.chatMessages?.length) {
@@ -15,10 +15,10 @@ export async function pickupLastMeetingFromStorage(): Promise<string> {
   }
 
   const newEntry: Meeting = {
-    meetingSoftware: data.meetingSoftware ?? "",
-    meetingTitle: data.meetingTitle,
-    meetingStartTimestamp: data.meetingStartTimestamp,
-    meetingEndTimestamp: new Date().toISOString(),
+    software: data.software ?? "",
+    title: data.title,
+    startTimestamp: data.startTimestamp,
+    endTimestamp: new Date().toISOString(),
     transcript: data.transcript ?? [],
     chatMessages: data.chatMessages ?? [],
     webhookPostStatus: "new",
@@ -27,16 +27,16 @@ export async function pickupLastMeetingFromStorage(): Promise<string> {
   let meetings = await StorageLocal.getMeetings()
   meetings.push(newEntry)
   if (meetings.length > 10) meetings = meetings.slice(-10)
-  await StorageLocal.saveMeetings(meetings)
+  await StorageLocal.setMeetings(meetings)
   console.log("Last meeting picked up")
   return "Last meeting picked up"
 }
 
-export async function processLastMeeting(): Promise<string> {
-  await pickupLastMeetingFromStorage()
+export async function finalizeMeeting(): Promise<string> {
+  await pickupLastMeeting()
 
   const meetings = await StorageLocal.getMeetings()
-  const sync = await StorageSync.getDownloadConfig()
+  const sync = await StorageSync.getAutoActionSettings()
   const lastIndex = meetings.length - 1
   const promises: Promise<unknown>[] = []
 
@@ -57,13 +57,13 @@ export async function recoverLastMeeting(): Promise<string> {
     StorageLocal.getCurrentMeetingData(),
   ])
 
-  if (!data.meetingStartTimestamp) {
+  if (!data.startTimestamp) {
     throw { errorCode: ErrorCode.NO_MEETINGS, errorMessage: "No meetings found. May be attend one?" }
   }
 
   const lastSaved = meetings.length > 0 ? meetings[meetings.length - 1] : undefined
-  if (!lastSaved || data.meetingStartTimestamp !== lastSaved.meetingStartTimestamp) {
-    await processLastMeeting()
+  if (!lastSaved || data.startTimestamp !== lastSaved.startTimestamp) {
+    await finalizeMeeting()
     return "Recovered last meeting to the best possible extent"
   }
   return "No recovery needed"

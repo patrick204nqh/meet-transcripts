@@ -1,13 +1,13 @@
 export interface TranscriptBlock {
   personName: string
   timestamp: string
-  transcriptText: string
+  text: string
 }
 
 export interface ChatMessage {
   personName: string
   timestamp: string
-  chatMessageText: string
+  text: string
 }
 
 export type MeetingSoftware = "Google Meet" | "" | undefined
@@ -16,10 +16,10 @@ export type OperationMode = "auto" | "manual"
 export type WebhookBodyType = "simple" | "advanced"
 
 export interface Meeting {
-  meetingSoftware?: MeetingSoftware
-  meetingTitle?: string
-  meetingStartTimestamp: string
-  meetingEndTimestamp: string
+  software?: MeetingSoftware
+  title?: string
+  startTimestamp: string
+  endTimestamp: string
   transcript: TranscriptBlock[]
   chatMessages: ChatMessage[]
   webhookPostStatus: "new" | "failed" | "successful"
@@ -28,19 +28,19 @@ export interface Meeting {
 export type WebhookBody =
   | {
       webhookBodyType: "advanced"
-      meetingSoftware: string
-      meetingTitle: string
-      meetingStartTimestamp: string
-      meetingEndTimestamp: string
+      software: string
+      title: string
+      startTimestamp: string
+      endTimestamp: string
       transcript: TranscriptBlock[]
       chatMessages: ChatMessage[]
     }
   | {
       webhookBodyType: "simple"
-      meetingSoftware: string
-      meetingTitle: string
-      meetingStartTimestamp: string
-      meetingEndTimestamp: string
+      software: string
+      title: string
+      startTimestamp: string
+      endTimestamp: string
       transcript: string
       chatMessages: string
     }
@@ -79,8 +79,8 @@ export interface AppState {
   transcriptTextBuffer: string
   timestampBuffer: string
   chatMessages: ChatMessage[]
-  meetingStartTimestamp: string
-  meetingTitle: string
+  startTimestamp: string
+  title: string
   isTranscriptDomErrorCaptured: boolean
   isChatMessagesDomErrorCaptured: boolean
   hasMeetingStarted: boolean

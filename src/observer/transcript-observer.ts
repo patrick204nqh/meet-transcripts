@@ -1,23 +1,24 @@
-import { state, mutationConfig, extensionStatusJSON_bug, reportErrorMessage } from '../state'
+import { state } from '../state'
+import { mutationConfig, bugStatusJson, reportErrorMessage } from '../constants'
 import { showNotification, logError } from '../ui'
-import { overWriteChromeStorage } from '../storage'
+import { persistStateFields } from '../state-sync'
 
 export function insertGapMarker(): void {
   state.transcript.push({
     personName: "[meet-transcripts]",
     timestamp: new Date().toISOString(),
-    transcriptText: "[Captions unavailable — tab was not in focus]",
+    text: "[Captions unavailable — tab was not in focus]",
   })
-  overWriteChromeStorage(["transcript"], false)
+  persistStateFields(["transcript"], false)
 }
 
 export function pushBufferToTranscript(): void {
   state.transcript.push({
     personName: state.personNameBuffer === "You" ? state.userName : state.personNameBuffer,
     timestamp: state.timestampBuffer,
-    transcriptText: state.transcriptTextBuffer,
+    text: state.transcriptTextBuffer,
   })
-  overWriteChromeStorage(["transcript"], false)
+  persistStateFields(["transcript"], false)
 }
 
 export function transcriptMutationCallback(mutationsList: MutationRecord[]): void {
@@ -73,7 +74,7 @@ export function transcriptMutationCallback(mutationsList: MutationRecord[]): voi
       console.error(err)
       if (!state.isTranscriptDomErrorCaptured && !state.hasMeetingEnded) {
         console.log(reportErrorMessage)
-        showNotification(extensionStatusJSON_bug)
+        showNotification(bugStatusJson)
         logError("005", err)
       }
       state.isTranscriptDomErrorCaptured = true

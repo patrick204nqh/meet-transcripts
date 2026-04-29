@@ -1,21 +1,22 @@
 import type { ErrorObject } from './types'
-import { state, meetingSoftware } from './state'
+import { state } from './state'
+import { meetingSoftware as meetingSoftwareConst } from './constants'
 import { pulseStatus } from './ui'
 import { sendMessage } from './shared/messages'
 
-type StorageKey = "meetingSoftware" | "meetingTitle" | "meetingStartTimestamp" | "transcript" | "chatMessages"
+type StorageKey = "software" | "title" | "startTimestamp" | "transcript" | "chatMessages"
 
-export function overWriteChromeStorage(keys: StorageKey[], sendDownloadMessage: boolean): void {
+export function persistStateFields(keys: StorageKey[], sendEndMessage: boolean): void {
   const objectToSave: Record<string, unknown> = {}
-  if (keys.includes("meetingSoftware")) objectToSave.meetingSoftware = meetingSoftware
-  if (keys.includes("meetingTitle")) objectToSave.meetingTitle = state.meetingTitle
-  if (keys.includes("meetingStartTimestamp")) objectToSave.meetingStartTimestamp = state.meetingStartTimestamp
+  if (keys.includes("software")) objectToSave.software = meetingSoftwareConst
+  if (keys.includes("title")) objectToSave.title = state.title
+  if (keys.includes("startTimestamp")) objectToSave.startTimestamp = state.startTimestamp
   if (keys.includes("transcript")) objectToSave.transcript = state.transcript
   if (keys.includes("chatMessages")) objectToSave.chatMessages = state.chatMessages
 
   chrome.storage.local.set(objectToSave, () => {
     pulseStatus()
-    if (sendDownloadMessage) {
+    if (sendEndMessage) {
       sendMessage({ type: "meeting_ended" }).then((response) => {
         if (!response.success && typeof response.message === "object") {
           const err = response.message as ErrorObject
