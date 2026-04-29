@@ -5,7 +5,7 @@ import { MeetingService } from '../services/meeting'
 import { DownloadService } from '../services/download'
 import { WebhookService } from '../services/webhook'
 import { clearTabIdAndApplyUpdate } from './lifecycle'
-import './event-listeners'
+import { handleMeetTabNavigatedAway } from './event-listeners'
 
 const ok: ExtensionResponse = { success: true, data: undefined }
 const err = (e: ErrorObject): ExtensionResponse => ({ success: false, error: e })
@@ -73,6 +73,15 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
         success: false,
         error: { errorCode: ErrorCode.POPUP_OPEN_FAILED, errorMessage: String(e) },
       }))
+    return true
+  }
+
+  if (msg.type === "simulate_tab_navigated_away") {
+    // Test-only: directly invokes the tabs.onUpdated handler logic for the given tab ID and URL.
+    // Needed because headless Chrome cannot navigate to external URLs, so changeInfo.url is never
+    // populated by actual tab navigation in offline test environments.
+    handleMeetTabNavigatedAway(msg.tabId, msg.url)
+    sendResponse(ok)
     return true
   }
 

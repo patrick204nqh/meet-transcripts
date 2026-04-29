@@ -72,6 +72,8 @@ export type ExtensionMessage =
   | { type: "recover_last_meeting" }
   | { type: "open_popup" }
   | { type: "get_debug_state" }
+  /** Test-only: simulates tabs.onUpdated firing with a URL for the given tab ID. */
+  | { type: "simulate_tab_navigated_away"; tabId: number; url: string }
 
 export type ExtensionResponse<T = void> =
   | { success: true; data: T }
