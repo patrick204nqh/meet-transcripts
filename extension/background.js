@@ -332,8 +332,8 @@
 	//#endregion
 	//#region src/background/content-script.ts
 	var PLATFORM_CONFIGS = { google_meet: {
-		id: "content-google-meet",
-		js: ["content-google-meet.js"],
+		id: "google-meet",
+		js: ["google-meet.js"],
 		matches: ["https://meet.google.com/*"],
 		excludeMatches: ["https://meet.google.com/", "https://meet.google.com/landing"]
 	} };
