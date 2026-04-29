@@ -39,7 +39,7 @@ export default defineConfig({
     minify: false,
     rollupOptions: {
       output: {
-        entryFileNames: 'content-google-meet.js',
+        entryFileNames: 'google-meet.js',
       },
     },
   },
