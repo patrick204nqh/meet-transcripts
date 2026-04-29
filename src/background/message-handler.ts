@@ -23,7 +23,9 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   if (msg.type === "new_meeting_started") {
     // RC-1 fix: use sender.tab.id (authoritative) instead of tabs.query (races with focus changes)
     if (sender.tab?.id !== undefined) {
-      StorageLocal.setMeetingTabId(sender.tab.id).then(() => console.log("Meeting tab id saved"))
+      StorageLocal.setMeetingTabId(sender.tab.id)
+        .then(() => console.log("Meeting tab id saved"))
+        .catch(console.error)
     }
     chrome.action.setBadgeText({ text: "REC" }).catch((e: unknown) => console.warn("setBadgeText failed:", e))
     chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e: unknown) => console.warn("setBadgeBgColor failed:", e))
@@ -87,7 +89,7 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
         lastMeetingStart: data.startTimestamp ?? undefined,
       }
       sendResponse({ success: true, data: debugState })
-    }).catch((e: ErrorObject) => sendResponse(err(e)))
+    }).catch((e: unknown) => sendResponse(err(e as ErrorObject)))
     return true
   }
 

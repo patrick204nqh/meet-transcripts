@@ -42,13 +42,9 @@ test.describe('Background lifecycle', () => {
       chrome.runtime.sendMessage({ type: 'new_meeting_started' })
     })
 
-    // Allow async storage write to complete
-    await page.waitForTimeout(500)
-
-    const stored = await page.evaluate(() => {
-      return new Promise((resolve) => chrome.storage.local.get(['meetingTabId'], (r) => resolve(r.meetingTabId)))
-    })
-
-    expect(stored).toBe(thisTabId)
+    await expect.poll(
+      () => page.evaluate(() => new Promise((resolve) => chrome.storage.local.get(['meetingTabId'], (r) => resolve(r.meetingTabId)))),
+      { timeout: 2000 }
+    ).toBe(thisTabId)
   })
 })
