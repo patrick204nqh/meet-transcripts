@@ -1,4 +1,5 @@
 import type { TranscriptBlock, ChatMessage } from '../types'
+import { ErrorCode } from '../shared/errors'
 import { StorageLocal } from '../shared/storage-repo'
 
 const timeFormat: Intl.DateTimeFormatOptions = {
@@ -28,7 +29,7 @@ export async function downloadTranscript(index: number, _isWebhookEnabled: boole
   const meetings = await StorageLocal.getMeetings()
 
   if (!meetings[index]) {
-    throw { errorCode: "010", errorMessage: "Meeting at specified index not found" }
+    throw { errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" }
   }
 
   const meeting = meetings[index]
@@ -36,8 +37,6 @@ export async function downloadTranscript(index: number, _isWebhookEnabled: boole
   let sanitisedTitle = "Meeting"
   if (meeting.meetingTitle) {
     sanitisedTitle = meeting.meetingTitle.replaceAll(invalidFilenameRegex, "_")
-  } else if (meeting.title) {
-    sanitisedTitle = meeting.title.replaceAll(invalidFilenameRegex, "_")
   }
 
   const timestamp = new Date(meeting.meetingStartTimestamp)
@@ -58,7 +57,7 @@ export async function downloadTranscript(index: number, _isWebhookEnabled: boole
     reader.readAsDataURL(blob)
     reader.onload = (event) => {
       if (!event.target?.result) {
-        reject({ errorCode: "009", errorMessage: "Failed to read blob" })
+        reject({ errorCode: ErrorCode.BLOB_READ_FAILED, errorMessage: "Failed to read blob" })
         return
       }
       const dataUrl = event.target.result as string
