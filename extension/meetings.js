@@ -2,6 +2,11 @@
 /// <reference path="../types/chrome.d.ts" />
 /// <reference path="../types/index.js" />
 
+const ErrorCode = {
+  NO_MEETINGS: "013",
+  EMPTY_TRANSCRIPT: "014",
+}
+
 let isMeetingsTableExpanded = false
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -49,7 +54,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 else {
                     const parsedError = /** @type {ErrorObject} */ (response.message)
-                    if (parsedError.errorCode === "013" || parsedError.errorCode === "014") {
+                    if (parsedError.errorCode === ErrorCode.NO_MEETINGS || parsedError.errorCode === ErrorCode.EMPTY_TRANSCRIPT) {
                         alert("No unprocessed meetings found.")
                     }
                     else {

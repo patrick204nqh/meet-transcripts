@@ -1,4 +1,5 @@
 import type { ErrorObject } from './types'
+import { ErrorCode } from './shared/errors'
 import { state } from './state'
 import { waitForElement, showNotification } from './ui'
 import { overWriteChromeStorage, recoverLastMeeting } from './storage'
@@ -8,12 +9,12 @@ import { checkExtensionStatus, meetingRoutines } from './meeting'
 Promise.race([
   recoverLastMeeting(),
   new Promise<never>((_, reject) =>
-    setTimeout(() => reject({ errorCode: "016", errorMessage: "Recovery timed out" }), 2000)
+    setTimeout(() => reject({ errorCode: ErrorCode.NO_HOST_PERMISSION, errorMessage: "Recovery timed out" }), 2000)
   )
 ])
   .catch((error: unknown) => {
     const parsedError = error as ErrorObject
-    if (parsedError.errorCode !== "013" && parsedError.errorCode !== "014") {
+    if (parsedError.errorCode !== ErrorCode.NO_MEETINGS && parsedError.errorCode !== ErrorCode.EMPTY_TRANSCRIPT) {
       console.error(parsedError.errorMessage)
     }
   })
