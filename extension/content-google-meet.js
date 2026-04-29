@@ -1,17 +1,17 @@
 (function() {
+	//#region src/shared/errors.ts
+	var ErrorCode = {
+		BLOB_READ_FAILED: "009",
+		MEETING_NOT_FOUND: "010",
+		WEBHOOK_REQUEST_FAILED: "011",
+		NO_WEBHOOK_URL: "012",
+		NO_MEETINGS: "013",
+		EMPTY_TRANSCRIPT: "014",
+		INVALID_INDEX: "015",
+		NO_HOST_PERMISSION: "016"
+	};
+	//#endregion
 	//#region src/state.ts
-	var extensionStatusJSON_bug = {
-		status: 400,
-		message: `<strong>meet-transcripts encountered a new error</strong> <br /> Please report it <a href="https://github.com/patrick204nqh/meet-transcripts/issues" target="_blank">here</a>.`
-	};
-	var reportErrorMessage = "There is a bug in meet-transcripts. Please report it at https://github.com/patrick204nqh/meet-transcripts/issues";
-	var mutationConfig = {
-		childList: true,
-		attributes: true,
-		subtree: true,
-		characterData: true
-	};
-	var meetingSoftware = "Google Meet";
 	var state = {
 		userName: "You",
 		transcript: [],
@@ -20,8 +20,8 @@
 		transcriptTextBuffer: "",
 		timestampBuffer: "",
 		chatMessages: [],
-		meetingStartTimestamp: (/* @__PURE__ */ new Date()).toISOString(),
-		meetingTitle: document.title,
+		startTimestamp: (/* @__PURE__ */ new Date()).toISOString(),
+		title: document.title,
 		isTranscriptDomErrorCaptured: false,
 		isChatMessagesDomErrorCaptured: false,
 		hasMeetingStarted: false,
@@ -111,6 +111,20 @@
 		console.error(`[meet-transcripts] Error ${code}:`, err);
 	}
 	//#endregion
+	//#region src/constants.ts
+	var bugStatusJson = {
+		status: 400,
+		message: `<strong>meet-transcripts encountered a new error</strong> <br /> Please report it <a href="https://github.com/patrick204nqh/meet-transcripts/issues" target="_blank">here</a>.`
+	};
+	var reportErrorMessage = "There is a bug in meet-transcripts. Please report it at https://github.com/patrick204nqh/meet-transcripts/issues";
+	var mutationConfig = {
+		childList: true,
+		attributes: true,
+		subtree: true,
+		characterData: true
+	};
+	var meetingSoftware = "Google Meet";
+	//#endregion
 	//#region src/shared/messages.ts
 	function sendMessage(msg) {
 		return new Promise((resolve, reject) => {
@@ -124,17 +138,17 @@
 		});
 	}
 	//#endregion
-	//#region src/storage.ts
-	function overWriteChromeStorage(keys, sendDownloadMessage) {
+	//#region src/state-sync.ts
+	function persistStateFields(keys, sendEndMessage) {
 		const objectToSave = {};
-		if (keys.includes("meetingSoftware")) objectToSave.meetingSoftware = meetingSoftware;
-		if (keys.includes("meetingTitle")) objectToSave.meetingTitle = state.meetingTitle;
-		if (keys.includes("meetingStartTimestamp")) objectToSave.meetingStartTimestamp = state.meetingStartTimestamp;
+		if (keys.includes("software")) objectToSave.software = meetingSoftware;
+		if (keys.includes("title")) objectToSave.title = state.title;
+		if (keys.includes("startTimestamp")) objectToSave.startTimestamp = state.startTimestamp;
 		if (keys.includes("transcript")) objectToSave.transcript = state.transcript;
 		if (keys.includes("chatMessages")) objectToSave.chatMessages = state.chatMessages;
 		chrome.storage.local.set(objectToSave, () => {
 			pulseStatus();
-			if (sendDownloadMessage) sendMessage({ type: "meeting_ended" }).then((response) => {
+			if (sendEndMessage) sendMessage({ type: "meeting_ended" }).then((response) => {
 				if (!response.success && typeof response.message === "object") {
 					const err = response.message;
 					if (err.errorCode === "010") console.error(err.errorMessage);
@@ -154,17 +168,17 @@
 		state.transcript.push({
 			personName: "[meet-transcripts]",
 			timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-			transcriptText: "[Captions unavailable — tab was not in focus]"
+			text: "[Captions unavailable — tab was not in focus]"
 		});
-		overWriteChromeStorage(["transcript"], false);
+		persistStateFields(["transcript"], false);
 	}
 	function pushBufferToTranscript() {
 		state.transcript.push({
 			personName: state.personNameBuffer === "You" ? state.userName : state.personNameBuffer,
 			timestamp: state.timestampBuffer,
-			transcriptText: state.transcriptTextBuffer
+			text: state.transcriptTextBuffer
 		});
-		overWriteChromeStorage(["transcript"], false);
+		persistStateFields(["transcript"], false);
 	}
 	function transcriptMutationCallback(mutationsList) {
 		mutationsList.forEach((mutation) => {
@@ -208,7 +222,7 @@
 				console.error(err);
 				if (!state.isTranscriptDomErrorCaptured && !state.hasMeetingEnded) {
 					console.log(reportErrorMessage);
-					showNotification(extensionStatusJSON_bug);
+					showNotification(bugStatusJson);
 					logError("005", err);
 				}
 				state.isTranscriptDomErrorCaptured = true;
@@ -218,10 +232,10 @@
 	//#endregion
 	//#region src/observer/chat-observer.ts
 	function pushUniqueChatBlock(chatBlock) {
-		if (!state.chatMessages.some((item) => item.personName === chatBlock.personName && item.chatMessageText === chatBlock.chatMessageText)) {
+		if (!state.chatMessages.some((item) => item.personName === chatBlock.personName && item.text === chatBlock.text)) {
 			console.log("Chat message captured");
 			state.chatMessages.push(chatBlock);
-			overWriteChromeStorage(["chatMessages"], false);
+			persistStateFields(["chatMessages"], false);
 		}
 	}
 	function chatMessagesMutationCallback(_mutationsList) {
@@ -236,13 +250,13 @@
 			if (personName && chatMessageText) pushUniqueChatBlock({
 				personName,
 				timestamp,
-				chatMessageText
+				text: chatMessageText
 			});
 		} catch (err) {
 			console.error(err);
 			if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) {
 				console.log(reportErrorMessage);
-				showNotification(extensionStatusJSON_bug);
+				showNotification(bugStatusJson);
 				logError("006", err);
 			}
 			state.isChatMessagesDomErrorCaptured = true;
@@ -275,8 +289,8 @@
 				});
 			}, 7e3);
 			function handleMeetingTitleElementChange() {
-				state.meetingTitle = meetingTitleElement.innerText;
-				overWriteChromeStorage(["meetingTitle"], false);
+				state.title = meetingTitleElement.innerText;
+				persistStateFields(["title"], false);
 			}
 		});
 	}
@@ -302,8 +316,8 @@
 			console.log("Meeting started");
 			chrome.runtime.sendMessage({ type: "new_meeting_started" }, () => {});
 			state.hasMeetingStarted = true;
-			state.meetingStartTimestamp = (/* @__PURE__ */ new Date()).toISOString();
-			overWriteChromeStorage(["meetingStartTimestamp"], false);
+			state.startTimestamp = (/* @__PURE__ */ new Date()).toISOString();
+			persistStateFields(["startTimestamp"], false);
 			updateMeetingTitle();
 			let transcriptObserver;
 			let chatMessagesObserver;
@@ -365,7 +379,7 @@
 			}).catch((err) => {
 				console.error(err);
 				state.isTranscriptDomErrorCaptured = true;
-				showNotification(extensionStatusJSON_bug);
+				showNotification(bugStatusJson);
 				logError("001", err);
 			});
 			waitForElement(".google-symbols", "chat").then(() => {
@@ -384,7 +398,7 @@
 			}).catch((err) => {
 				console.error(err);
 				state.isChatMessagesDomErrorCaptured = true;
-				showNotification(extensionStatusJSON_bug);
+				showNotification(bugStatusJson);
 				logError("003", err);
 			});
 			try {
@@ -397,11 +411,11 @@
 					captionWatchdog?.disconnect();
 					document.removeEventListener("visibilitychange", onVisibilityChange);
 					if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") pushBufferToTranscript();
-					overWriteChromeStorage(["transcript", "chatMessages"], true);
+					persistStateFields(["transcript", "chatMessages"], true);
 				});
 			} catch (err) {
 				console.error(err);
-				showNotification(extensionStatusJSON_bug);
+				showNotification(bugStatusJson);
 				logError("004", err);
 			}
 		});
@@ -409,16 +423,16 @@
 	//#endregion
 	//#region src/content-google-meet.ts
 	Promise.race([recoverLastMeeting(), new Promise((_, reject) => setTimeout(() => reject({
-		errorCode: "016",
+		errorCode: ErrorCode.NO_HOST_PERMISSION,
 		errorMessage: "Recovery timed out"
 	}), 2e3))]).catch((error) => {
 		const parsedError = error;
-		if (parsedError.errorCode !== "013" && parsedError.errorCode !== "014") console.error(parsedError.errorMessage);
+		if (parsedError.errorCode !== ErrorCode.NO_MEETINGS && parsedError.errorCode !== ErrorCode.EMPTY_TRANSCRIPT) console.error(parsedError.errorMessage);
 	}).finally(() => {
-		overWriteChromeStorage([
-			"meetingSoftware",
-			"meetingStartTimestamp",
-			"meetingTitle",
+		persistStateFields([
+			"software",
+			"startTimestamp",
+			"title",
 			"transcript",
 			"chatMessages"
 		], false);
