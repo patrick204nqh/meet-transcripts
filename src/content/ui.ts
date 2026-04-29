@@ -25,6 +25,10 @@ const commonCSS = `background: rgb(255 255 255 / 100%);
 const DOM_POLL_INTERVAL_MS = 250
 const DOM_POLL_MAX_ATTEMPTS = 120  // 30 s ceiling before giving up
 
+// Embedded so notifications don't require a chrome-extension:// fetch — Meet's
+// service worker intercepts every fetch on the page and fails on extension URLs.
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><defs><linearGradient id="meetTranscriptsLogoBg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#1e293b"/><stop offset="100%" style="stop-color:#0f172a"/></linearGradient></defs><rect width="40" height="40" rx="9" fill="url(#meetTranscriptsLogoBg)"/><rect x="4" y="3" width="30" height="25" rx="5" fill="#1e3a8a"/><rect x="4" y="3" width="30" height="25" rx="5" fill="none" stroke="#38bdf8" stroke-width="1.2"/><polygon points="8,28 14,28 10,34" fill="#1e3a8a"/><line x1="8" y1="28" x2="10" y2="34" stroke="#38bdf8" stroke-width="1.2" stroke-linecap="round"/><line x1="14" y1="28" x2="10" y2="34" stroke="#38bdf8" stroke-width="1.2" stroke-linecap="round"/><line x1="8" y1="28" x2="14" y2="28" stroke="#1e3a8a" stroke-width="1.5"/><rect x="8" y="9" width="21" height="2" rx="1" fill="#bae6fd" opacity="0.85"/><rect x="8" y="13" width="16" height="2" rx="1" fill="#bae6fd" opacity="0.85"/><rect x="8" y="17" width="11" height="2" rx="1" fill="#bae6fd" opacity="0.85"/><rect x="10" y="23" width="2" height="3" rx="1" fill="#38bdf8"/><rect x="13" y="21" width="2" height="5" rx="1" fill="#38bdf8"/><rect x="16" y="19" width="2" height="7" rx="1" fill="#38bdf8"/><rect x="19" y="22" width="2" height="4" rx="1" fill="#38bdf8"/><rect x="22" y="23" width="2" height="3" rx="1" fill="#38bdf8"/></svg>`
+
 export function selectElements(selector: string, text: string | RegExp): Element[] {
   const elements = document.querySelectorAll(selector)
   return Array.prototype.filter.call(elements, (element: Element) =>
@@ -75,14 +79,18 @@ export function showNotification(statusJSON: ExtensionStatusJSON | null): void {
   if (!statusJSON) return
   const html = document.querySelector("html")
   const obj = document.createElement("div")
-  const logo = document.createElement("img")
   const text = document.createElement("p")
 
-  logo.setAttribute("src", chrome.runtime.getURL("icon.png"))
-  logo.setAttribute("height", "32px")
-  logo.setAttribute("width", "32px")
-  logo.style.cssText = "border-radius: 4px"
-  logo.onerror = () => { logo.style.display = "none" }
+  // Inline SVG instead of <img src="chrome-extension://..."> — Meet's service worker
+  // intercepts every fetch on the page and rejects extension URLs, polluting the console.
+  const logoWrapper = document.createElement("div")
+  logoWrapper.innerHTML = LOGO_SVG
+  const logo = logoWrapper.firstElementChild as SVGElement | null
+  if (logo) {
+    logo.setAttribute("width", "32")
+    logo.setAttribute("height", "32")
+    logo.style.cssText = "border-radius: 4px; flex-shrink: 0"
+  }
 
   setTimeout(() => { obj.style.display = "none" }, 5000)
 
@@ -95,7 +103,7 @@ export function showNotification(statusJSON: ExtensionStatusJSON | null): void {
   }
 
   obj.prepend(text)
-  obj.prepend(logo)
+  if (logo) obj.prepend(logo)
   html?.append(obj)
 }
 
