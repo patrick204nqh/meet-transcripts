@@ -1,19 +1,16 @@
 (function() {
-	//#region src/state.js
-	/** @type {ExtensionStatusJSON} */
+	//#region src/state.ts
 	var extensionStatusJSON_bug = {
 		status: 400,
 		message: `<strong>meet-transcripts encountered a new error</strong> <br /> Please report it <a href="https://github.com/patrick204nqh/meet-transcripts/issues" target="_blank">here</a>.`
 	};
 	var reportErrorMessage = "There is a bug in meet-transcripts. Please report it at https://github.com/patrick204nqh/meet-transcripts/issues";
-	/** @type {MutationObserverInit} */
 	var mutationConfig = {
 		childList: true,
 		attributes: true,
 		subtree: true,
 		characterData: true
 	};
-	/** @type {MeetingSoftware} */
 	var meetingSoftware = "Google Meet";
 	var state = {
 		userName: "You",
@@ -32,7 +29,7 @@
 		extensionStatusJSON: null
 	};
 	//#endregion
-	//#region src/ui.js
+	//#region src/ui.ts
 	var commonCSS = `background: rgb(255 255 255 / 100%);
     backdrop-filter: blur(16px);
     position: fixed;
@@ -53,33 +50,21 @@
     line-height: 1.5;
     font-family: "Google Sans",Roboto,Arial,sans-serif;
     box-shadow: rgba(0, 0, 0, 0.16) 0px 10px 36px 0px, rgba(0, 0, 0, 0.06) 0px 0px 0px 1px;`;
-	/**
-	* @param {string} selector
-	* @param {string | RegExp} text
-	*/
 	function selectElements(selector, text) {
-		var elements = document.querySelectorAll(selector);
-		return Array.prototype.filter.call(elements, function(element) {
-			return RegExp(text).test(element.textContent);
-		});
+		const elements = document.querySelectorAll(selector);
+		return Array.prototype.filter.call(elements, (element) => RegExp(text).test(element.textContent ?? ""));
 	}
-	/**
-	* @param {string} selector
-	* @param {string | RegExp} [text]
-	*/
 	async function waitForElement(selector, text) {
-		if (text) while (!Array.from(document.querySelectorAll(selector)).find((element) => element.textContent === text)) await new Promise((resolve) => requestAnimationFrame(resolve));
+		if (text) while (!Array.from(document.querySelectorAll(selector)).find((el) => el.textContent === text)) await new Promise((resolve) => requestAnimationFrame(resolve));
 		else while (!document.querySelector(selector)) await new Promise((resolve) => requestAnimationFrame(resolve));
 		return document.querySelector(selector);
 	}
-	/**
-	* @param {ExtensionStatusJSON} extensionStatusJSON
-	*/
-	function showNotification(extensionStatusJSON) {
-		let html = document.querySelector("html");
-		let obj = document.createElement("div");
-		let logo = document.createElement("img");
-		let text = document.createElement("p");
+	function showNotification(statusJSON) {
+		if (!statusJSON) return;
+		const html = document.querySelector("html");
+		const obj = document.createElement("div");
+		const logo = document.createElement("img");
+		const text = document.createElement("p");
 		logo.setAttribute("src", chrome.runtime.getURL("icon.png"));
 		logo.setAttribute("height", "32px");
 		logo.setAttribute("width", "32px");
@@ -90,16 +75,16 @@
 		setTimeout(() => {
 			obj.style.display = "none";
 		}, 5e3);
-		if (extensionStatusJSON.status === 200) {
+		if (statusJSON.status === 200) {
 			obj.style.cssText = `color: #2A9ACA; ${commonCSS}`;
-			text.innerHTML = extensionStatusJSON.message;
+			text.innerHTML = statusJSON.message;
 		} else {
 			obj.style.cssText = `color: orange; ${commonCSS}`;
-			text.innerHTML = extensionStatusJSON.message;
+			text.innerHTML = statusJSON.message;
 		}
 		obj.prepend(text);
 		obj.prepend(logo);
-		if (html) html.append(obj);
+		html?.append(obj);
 	}
 	function pulseStatus() {
 		const statusActivityCSS = `position: fixed;
@@ -109,32 +94,24 @@
     z-index: 100;
     transition: background-color 0.3s ease-in
   `;
-		/** @type {HTMLDivElement | null} */
 		let activityStatus = document.querySelector(`#meet-transcripts-status`);
 		if (!activityStatus) {
-			let html = document.querySelector("html");
+			const html = document.querySelector("html");
 			activityStatus = document.createElement("div");
 			activityStatus.setAttribute("id", "meet-transcripts-status");
 			activityStatus.style.cssText = `background-color: #2A9ACA; ${statusActivityCSS}`;
 			html?.appendChild(activityStatus);
 		} else activityStatus.style.cssText = `background-color: #2A9ACA; ${statusActivityCSS}`;
+		const el = activityStatus;
 		setTimeout(() => {
-			activityStatus.style.cssText = `background-color: transparent; ${statusActivityCSS}`;
+			el.style.cssText = `background-color: transparent; ${statusActivityCSS}`;
 		}, 3e3);
 	}
-	/**
-	* @param {string} code
-	* @param {any} err
-	*/
 	function logError(code, err) {
 		console.error(`[meet-transcripts] Error ${code}:`, err);
 	}
 	//#endregion
-	//#region src/storage.js
-	/**
-	* @param {Array<"meetingSoftware" | "meetingTitle" | "meetingStartTimestamp" | "transcript" | "chatMessages">} keys
-	* @param {boolean} sendDownloadMessage
-	*/
+	//#region src/storage.ts
 	function overWriteChromeStorage(keys, sendDownloadMessage) {
 		const objectToSave = {};
 		if (keys.includes("meetingSoftware")) objectToSave.meetingSoftware = meetingSoftware;
@@ -142,25 +119,28 @@
 		if (keys.includes("meetingStartTimestamp")) objectToSave.meetingStartTimestamp = state.meetingStartTimestamp;
 		if (keys.includes("transcript")) objectToSave.transcript = state.transcript;
 		if (keys.includes("chatMessages")) objectToSave.chatMessages = state.chatMessages;
-		chrome.storage.local.set(objectToSave, function() {
+		chrome.storage.local.set(objectToSave, () => {
 			pulseStatus();
-			if (sendDownloadMessage) chrome.runtime.sendMessage({ type: "meeting_ended" }, (responseUntyped) => {
-				const response = responseUntyped;
-				if (!response.success && typeof response.message === "object" && response.message?.errorCode === "010") console.error(response.message.errorMessage);
+			if (sendDownloadMessage) chrome.runtime.sendMessage({ type: "meeting_ended" }, (raw) => {
+				const response = raw;
+				if (!response.success && typeof response.message === "object") {
+					const err = response.message;
+					if (err.errorCode === "010") console.error(err.errorMessage);
+				}
 			});
 		});
 	}
 	function recoverLastMeeting() {
 		return new Promise((resolve, reject) => {
-			chrome.runtime.sendMessage({ type: "recover_last_meeting" }, function(responseUntyped) {
-				const response = responseUntyped;
+			chrome.runtime.sendMessage({ type: "recover_last_meeting" }, (raw) => {
+				const response = raw;
 				if (response.success) resolve("Last meeting recovered successfully or recovery not needed");
 				else reject(response.message);
 			});
 		});
 	}
 	//#endregion
-	//#region src/observer/transcript-observer.js
+	//#region src/observer/transcript-observer.ts
 	function insertGapMarker() {
 		state.transcript.push({
 			personName: "[meet-transcripts]",
@@ -177,20 +157,17 @@
 		});
 		overWriteChromeStorage(["transcript"], false);
 	}
-	/**
-	* @param {MutationRecord[]} mutationsList
-	*/
 	function transcriptMutationCallback(mutationsList) {
 		mutationsList.forEach((mutation) => {
 			try {
 				if (mutation.type === "characterData") {
 					const mutationTargetElement = mutation.target.parentElement;
-					const transcriptUIBlocks = [...mutationTargetElement?.parentElement?.parentElement?.children || []];
-					if (transcriptUIBlocks[transcriptUIBlocks.length - 3] === mutationTargetElement?.parentElement ? true : false) {
-						const currentPersonName = mutationTargetElement?.previousSibling?.textContent;
+					const transcriptUIBlocks = [...mutationTargetElement?.parentElement?.parentElement?.children ?? []];
+					if (transcriptUIBlocks[transcriptUIBlocks.length - 3] === mutationTargetElement?.parentElement) {
+						const currentPersonName = (mutationTargetElement?.previousSibling)?.textContent;
 						const currentTranscriptText = mutationTargetElement?.textContent;
 						if (currentPersonName && currentTranscriptText) {
-							[...transcriptUIBlocks[transcriptUIBlocks.length - 3].children].forEach((item) => {
+							Array.from(transcriptUIBlocks[transcriptUIBlocks.length - 3]?.children ?? []).forEach((item) => {
 								item.setAttribute("style", "opacity:0.2");
 							});
 							if (state.transcriptTextBuffer === "") {
@@ -230,10 +207,7 @@
 		});
 	}
 	//#endregion
-	//#region src/observer/chat-observer.js
-	/**
-	* @param {ChatMessage} chatBlock
-	*/
+	//#region src/observer/chat-observer.ts
 	function pushUniqueChatBlock(chatBlock) {
 		if (!state.chatMessages.some((item) => item.personName === chatBlock.personName && item.chatMessageText === chatBlock.chatMessageText)) {
 			console.log("Chat message captured");
@@ -241,38 +215,32 @@
 			overWriteChromeStorage(["chatMessages"], false);
 		}
 	}
-	/**
-	* @param {MutationRecord[]} mutationsList
-	*/
-	function chatMessagesMutationCallback(mutationsList) {
-		mutationsList.forEach(() => {
-			try {
-				const chatMessagesElement = document.querySelector(`div[aria-live="polite"].Ge9Kpc`);
-				if (chatMessagesElement && chatMessagesElement.children.length > 0) {
-					const chatMessageElement = chatMessagesElement.lastChild?.firstChild?.firstChild?.lastChild;
-					const personAndTimestampElement = chatMessageElement?.firstChild;
-					const personName = personAndTimestampElement?.childNodes.length === 1 ? state.userName : personAndTimestampElement?.firstChild?.textContent;
-					const timestamp = (/* @__PURE__ */ new Date()).toISOString();
-					const chatMessageText = chatMessageElement?.lastChild?.lastChild?.firstChild?.firstChild?.firstChild?.textContent;
-					if (personName && chatMessageText) pushUniqueChatBlock({
-						personName,
-						timestamp,
-						chatMessageText
-					});
-				}
-			} catch (err) {
-				console.error(err);
-				if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) {
-					console.log(reportErrorMessage);
-					showNotification(extensionStatusJSON_bug);
-					logError("006", err);
-				}
-				state.isChatMessagesDomErrorCaptured = true;
+	function chatMessagesMutationCallback(_mutationsList) {
+		try {
+			const chatMessagesElement = document.querySelector(`div[aria-live="polite"].Ge9Kpc`);
+			if (!chatMessagesElement || chatMessagesElement.children.length === 0) return;
+			const chatMessageElement = chatMessagesElement.lastChild?.firstChild?.firstChild?.lastChild;
+			const personAndTimestampElement = chatMessageElement?.firstChild;
+			const personName = personAndTimestampElement?.childNodes.length === 1 ? state.userName : personAndTimestampElement?.firstChild?.textContent ?? null;
+			const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+			const chatMessageText = (chatMessageElement?.lastChild?.lastChild?.firstChild?.firstChild?.firstChild)?.textContent ?? null;
+			if (personName && chatMessageText) pushUniqueChatBlock({
+				personName,
+				timestamp,
+				chatMessageText
+			});
+		} catch (err) {
+			console.error(err);
+			if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) {
+				console.log(reportErrorMessage);
+				showNotification(extensionStatusJSON_bug);
+				logError("006", err);
 			}
-		});
+			state.isChatMessagesDomErrorCaptured = true;
+		}
 	}
 	//#endregion
-	//#region src/meeting.js
+	//#region src/meeting.ts
 	function checkExtensionStatus() {
 		return new Promise((resolve) => {
 			state.extensionStatusJSON = {
@@ -285,10 +253,11 @@
 	function updateMeetingTitle() {
 		waitForElement(".u6vdEc").then((element) => {
 			const meetingTitleElement = element;
-			meetingTitleElement?.setAttribute("contenteditable", "true");
+			if (!meetingTitleElement) return;
+			meetingTitleElement.setAttribute("contenteditable", "true");
 			meetingTitleElement.title = "Edit meeting title for meet-transcripts";
 			meetingTitleElement.style.cssText = `text-decoration: underline white; text-underline-offset: 4px;`;
-			meetingTitleElement?.addEventListener("input", handleMeetingTitleElementChange);
+			meetingTitleElement.addEventListener("input", handleMeetingTitleElementChange);
 			setTimeout(() => {
 				handleMeetingTitleElementChange();
 				if (location.pathname === `/${meetingTitleElement.innerText}`) showNotification({
@@ -302,9 +271,6 @@
 			}
 		});
 	}
-	/**
-	* @param {number} uiType
-	*/
 	function meetingRoutines(uiType) {
 		const meetingEndIconData = {
 			selector: "",
@@ -320,20 +286,18 @@
 				meetingEndIconData.text = "call_end";
 				captionsIconData.selector = ".google-symbols";
 				captionsIconData.text = "closed_caption_off";
+				break;
 			default: break;
 		}
 		waitForElement(meetingEndIconData.selector, meetingEndIconData.text).then(() => {
 			console.log("Meeting started");
-			chrome.runtime.sendMessage({ type: "new_meeting_started" }, function() {});
+			chrome.runtime.sendMessage({ type: "new_meeting_started" }, () => {});
 			state.hasMeetingStarted = true;
 			state.meetingStartTimestamp = (/* @__PURE__ */ new Date()).toISOString();
 			overWriteChromeStorage(["meetingStartTimestamp"], false);
 			updateMeetingTitle();
-			/** @type {MutationObserver} */
 			let transcriptObserver;
-			/** @type {MutationObserver} */
 			let chatMessagesObserver;
-			/** @type {MutationObserver} */
 			let captionWatchdog;
 			let isReattaching = false;
 			const captionContainerSelector = `div[role="region"][tabindex="0"]`;
@@ -357,15 +321,14 @@
 			document.addEventListener("visibilitychange", onVisibilityChange);
 			waitForElement(captionsIconData.selector, captionsIconData.text).then(() => {
 				const captionsButton = selectElements(captionsIconData.selector, captionsIconData.text)[0];
-				chrome.storage.sync.get(["operationMode"], function(resultSyncUntyped) {
-					if (resultSyncUntyped.operationMode === "manual") console.log("Manual mode selected, leaving transcript off");
-					else captionsButton.click();
+				chrome.storage.sync.get(["operationMode"], (resultSync) => {
+					if (resultSync.operationMode === "manual") console.log("Manual mode selected, leaving transcript off");
+					else captionsButton?.click();
 				});
-				return waitForElement(`div[role="region"][tabindex="0"]`).then((targetNode) => targetNode);
+				return waitForElement(`div[role="region"][tabindex="0"]`);
 			}).then((targetNode) => {
-				const transcriptTargetNode = targetNode;
-				if (transcriptTargetNode) {
-					attachTranscriptObserver(transcriptTargetNode);
+				if (targetNode) {
+					attachTranscriptObserver(targetNode);
 					captionWatchdog = new MutationObserver(() => {
 						if (state.hasMeetingEnded || isReattaching) return;
 						if (state.transcriptTargetBuffer && !state.transcriptTargetBuffer.isConnected) {
@@ -382,8 +345,8 @@
 						childList: true,
 						subtree: true
 					});
-					chrome.storage.sync.get(["operationMode"], function(resultSyncUntyped) {
-						if (resultSyncUntyped.operationMode === "manual") showNotification({
+					chrome.storage.sync.get(["operationMode"], (resultSync) => {
+						if (resultSync.operationMode === "manual") showNotification({
 							status: 400,
 							message: "<strong>meet-transcripts is not running</strong> <br /> Turn on captions using the CC icon, if needed"
 						});
@@ -398,17 +361,16 @@
 			});
 			waitForElement(".google-symbols", "chat").then(() => {
 				const chatMessagesButton = selectElements(".google-symbols", "chat")[0];
-				chatMessagesButton.click();
+				chatMessagesButton?.click();
 				return waitForElement(`div[aria-live="polite"].Ge9Kpc`).then((targetNode) => ({
 					targetNode,
 					chatMessagesButton
 				}));
 			}).then(({ targetNode, chatMessagesButton }) => {
-				chatMessagesButton.click();
-				const chatMessagesTargetNode = targetNode;
-				if (chatMessagesTargetNode) {
+				chatMessagesButton?.click();
+				if (targetNode) {
 					chatMessagesObserver = new MutationObserver(chatMessagesMutationCallback);
-					chatMessagesObserver.observe(chatMessagesTargetNode, mutationConfig);
+					chatMessagesObserver.observe(targetNode, mutationConfig);
 				} else throw new Error("Chat messages element not found in DOM");
 			}).catch((err) => {
 				console.error(err);
@@ -417,11 +379,13 @@
 				logError("003", err);
 			});
 			try {
-				selectElements(meetingEndIconData.selector, meetingEndIconData.text)[0].parentElement.parentElement.addEventListener("click", () => {
+				const clickTarget = selectElements(meetingEndIconData.selector, meetingEndIconData.text)[0]?.parentElement?.parentElement;
+				if (!clickTarget) throw new Error("Call end button element not found in DOM");
+				clickTarget.addEventListener("click", () => {
 					state.hasMeetingEnded = true;
-					if (transcriptObserver) transcriptObserver.disconnect();
-					if (chatMessagesObserver) chatMessagesObserver.disconnect();
-					if (captionWatchdog) captionWatchdog.disconnect();
+					transcriptObserver?.disconnect();
+					chatMessagesObserver?.disconnect();
+					captionWatchdog?.disconnect();
 					document.removeEventListener("visibilitychange", onVisibilityChange);
 					if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") pushBufferToTranscript();
 					overWriteChromeStorage(["transcript", "chatMessages"], true);
@@ -434,7 +398,7 @@
 		});
 	}
 	//#endregion
-	//#region src/content-google-meet.js
+	//#region src/content-google-meet.ts
 	Promise.race([recoverLastMeeting(), new Promise((_, reject) => setTimeout(() => reject({
 		errorCode: "016",
 		errorMessage: "Recovery timed out"

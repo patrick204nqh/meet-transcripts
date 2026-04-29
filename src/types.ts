@@ -25,6 +25,26 @@ export interface Meeting {
   webhookPostStatus: "new" | "failed" | "successful"
 }
 
+export type WebhookBody =
+  | {
+      webhookBodyType: "advanced"
+      meetingSoftware: string
+      meetingTitle: string
+      meetingStartTimestamp: string
+      meetingEndTimestamp: string
+      transcript: TranscriptBlock[]
+      chatMessages: ChatMessage[]
+    }
+  | {
+      webhookBodyType: "simple"
+      meetingSoftware: string
+      meetingTitle: string
+      meetingStartTimestamp: string
+      meetingEndTimestamp: string
+      transcript: string
+      chatMessages: string
+    }
+
 export interface ExtensionStatusJSON {
   status: number
   message: string
