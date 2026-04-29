@@ -2,6 +2,17 @@
 /// <reference path="../types/chrome.d.ts" />
 /// <reference path="../types/index.js" />
 
+const ErrorCode = {
+    BLOB_READ_FAILED: "009",
+    MEETING_NOT_FOUND: "010",
+    WEBHOOK_REQUEST_FAILED: "011",
+    NO_WEBHOOK_URL: "012",
+    NO_MEETINGS: "013",
+    EMPTY_TRANSCRIPT: "014",
+    INVALID_INDEX: "015",
+    NO_HOST_PERMISSION: "016",
+}
+
 /** @type {Intl.DateTimeFormatOptions} */
 const timeFormat = {
     year: "numeric",
@@ -29,6 +40,14 @@ const PLATFORM_CONFIGS = {
     }
 }
 
+/** @type {Set<string>} */
+const notificationClickTargets = new Set()
+chrome.notifications.onClicked.addListener(function (notificationId) {
+    if (notificationClickTargets.has(notificationId)) {
+        notificationClickTargets.delete(notificationId)
+        chrome.tabs.create({ url: "meetings.html" })
+    }
+})
 
 chrome.runtime.onMessage.addListener(function (messageUnTyped, sender, sendResponse) {
     if (sender.id !== chrome.runtime.id) return
@@ -94,7 +113,7 @@ chrome.runtime.onMessage.addListener(function (messageUnTyped, sender, sendRespo
         }
         else {
             /** @type {ExtensionResponse} */
-            const response = { success: false, message: { errorCode: "015", errorMessage: "Invalid index" } }
+            const response = { success: false, message: { errorCode: ErrorCode.INVALID_INDEX, errorMessage: "Invalid index" } }
             sendResponse(response)
         }
     }
@@ -120,7 +139,7 @@ chrome.runtime.onMessage.addListener(function (messageUnTyped, sender, sendRespo
         }
         else {
             /** @type {ExtensionResponse} */
-            const response = { success: false, message: { errorCode: "015", errorMessage: "Invalid index" } }
+            const response = { success: false, message: { errorCode: ErrorCode.INVALID_INDEX, errorMessage: "Invalid index" } }
             sendResponse(response)
         }
     }
@@ -330,11 +349,11 @@ function pickupLastMeetingFromStorage() {
                     })
                 }
                 else {
-                    reject({ errorCode: "014", errorMessage: "Empty transcript and empty chatMessages" })
+                    reject({ errorCode: ErrorCode.EMPTY_TRANSCRIPT, errorMessage: "Empty transcript and empty chatMessages" })
                 }
             }
             else {
-                reject({ errorCode: "013", errorMessage: "No meetings found. May be attend one?" })
+                reject({ errorCode: ErrorCode.NO_MEETINGS, errorMessage: "No meetings found. May be attend one?" })
             }
         })
     })
@@ -361,9 +380,6 @@ function downloadTranscript(index, isWebhookEnabled) {
                 let sanitisedMeetingTitle = "Meeting"
                 if (meeting.meetingTitle) {
                     sanitisedMeetingTitle = meeting.meetingTitle.replaceAll(invalidFilenameRegex, "_")
-                }
-                else if (meeting.title) {
-                    sanitisedMeetingTitle = meeting.title.replaceAll(invalidFilenameRegex, "_")
                 }
 
                 // Format timestamp for human-readable filename and sanitise to prevent invalid filenames
@@ -420,12 +436,12 @@ function downloadTranscript(index, isWebhookEnabled) {
                         })
                     }
                     else {
-                        reject({ errorCode: "009", errorMessage: "Failed to read blob" })
+                        reject({ errorCode: ErrorCode.BLOB_READ_FAILED, errorMessage: "Failed to read blob" })
                     }
                 }
             }
             else {
-                reject({ errorCode: "010", errorMessage: "Meeting at specified index not found" })
+                reject({ errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" })
             }
         })
     })
@@ -440,10 +456,10 @@ async function postTranscriptToWebhook(index) {
     const resultSync = /** @type {ResultSync} */ (await chromeGet("sync", ["webhookUrl", "webhookBodyType"]))
 
     if (!resultSync.webhookUrl) {
-        throw { errorCode: "012", errorMessage: "No webhook URL configured" }
+        throw { errorCode: ErrorCode.NO_WEBHOOK_URL, errorMessage: "No webhook URL configured" }
     }
     if (!resultLocal.meetings || !resultLocal.meetings[index]) {
-        throw { errorCode: "010", errorMessage: "Meeting at specified index not found" }
+        throw { errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" }
     }
 
     // Verify host permission exists — URL may have synced from another device.
@@ -453,7 +469,7 @@ async function postTranscriptToWebhook(index) {
         chrome.permissions.contains({ origins: [originPattern] }, res)
     )
     if (!hasPermission) {
-        throw { errorCode: "016", errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission." }
+        throw { errorCode: ErrorCode.NO_HOST_PERMISSION, errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission." }
     }
 
     const meeting = resultLocal.meetings[index]
@@ -462,7 +478,7 @@ async function postTranscriptToWebhook(index) {
         ? {
             webhookBodyType: "advanced",
             meetingSoftware: meeting.meetingSoftware || "",
-            meetingTitle: meeting.meetingTitle || meeting.title || "",
+            meetingTitle: meeting.meetingTitle || "",
             meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toISOString(),
             meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toISOString(),
             transcript: meeting.transcript,
@@ -471,7 +487,7 @@ async function postTranscriptToWebhook(index) {
         : {
             webhookBodyType: "simple",
             meetingSoftware: meeting.meetingSoftware || "",
-            meetingTitle: meeting.meetingTitle || meeting.title || "",
+            meetingTitle: meeting.meetingTitle || "",
             meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
             meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
             transcript: getTranscriptString(meeting.transcript),
@@ -482,7 +498,7 @@ async function postTranscriptToWebhook(index) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(webhookData)
-    }).catch(error => { throw { errorCode: "011", errorMessage: error } })
+    }).catch(error => { throw { errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED, errorMessage: error } })
 
     if (!response.ok) {
         // Update failure status and notify
@@ -494,13 +510,9 @@ async function postTranscriptToWebhook(index) {
             title: "Could not post webhook!",
             message: `HTTP ${response.status} ${response.statusText}. Click to view and retry.`
         }, function (notificationId) {
-            chrome.notifications.onClicked.addListener(function (clickedNotificationId) {
-                if (clickedNotificationId === notificationId) {
-                    chrome.tabs.create({ url: "meetings.html" })
-                }
-            })
+            notificationClickTargets.add(notificationId)
         })
-        throw { errorCode: "011", errorMessage: `HTTP ${response.status} ${response.statusText}` }
+        throw { errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED, errorMessage: `HTTP ${response.status} ${response.statusText}` }
     }
 
     resultLocal.meetings[index].webhookPostStatus = "successful"
@@ -591,7 +603,7 @@ function recoverLastMeeting() {
                 }
             }
             else {
-                reject({ errorCode: "013", errorMessage: "No meetings found. May be attend one?" })
+                reject({ errorCode: ErrorCode.NO_MEETINGS, errorMessage: "No meetings found. May be attend one?" })
             }
         })
     })
