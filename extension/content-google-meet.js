@@ -111,6 +111,19 @@
 		console.error(`[meet-transcripts] Error ${code}:`, err);
 	}
 	//#endregion
+	//#region src/shared/messages.ts
+	function sendMessage(msg) {
+		return new Promise((resolve, reject) => {
+			chrome.runtime.sendMessage(msg, (raw) => {
+				if (chrome.runtime.lastError) {
+					reject(chrome.runtime.lastError);
+					return;
+				}
+				resolve(raw);
+			});
+		});
+	}
+	//#endregion
 	//#region src/storage.ts
 	function overWriteChromeStorage(keys, sendDownloadMessage) {
 		const objectToSave = {};
@@ -121,8 +134,7 @@
 		if (keys.includes("chatMessages")) objectToSave.chatMessages = state.chatMessages;
 		chrome.storage.local.set(objectToSave, () => {
 			pulseStatus();
-			if (sendDownloadMessage) chrome.runtime.sendMessage({ type: "meeting_ended" }, (raw) => {
-				const response = raw;
+			if (sendDownloadMessage) sendMessage({ type: "meeting_ended" }).then((response) => {
 				if (!response.success && typeof response.message === "object") {
 					const err = response.message;
 					if (err.errorCode === "010") console.error(err.errorMessage);
@@ -131,12 +143,9 @@
 		});
 	}
 	function recoverLastMeeting() {
-		return new Promise((resolve, reject) => {
-			chrome.runtime.sendMessage({ type: "recover_last_meeting" }, (raw) => {
-				const response = raw;
-				if (response.success) resolve("Last meeting recovered successfully or recovery not needed");
-				else reject(response.message);
-			});
+		return sendMessage({ type: "recover_last_meeting" }).then((response) => {
+			if (response.success) return "Last meeting recovered successfully or recovery not needed";
+			return Promise.reject(response.message);
 		});
 	}
 	//#endregion

@@ -1,5 +1,6 @@
 import type { Meeting, WebhookBody } from '../types'
 import { ErrorCode } from '../shared/errors'
+import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { getTranscriptString, getChatMessagesString } from './download'
 
 const timeFormat: Intl.DateTimeFormatOptions = {
@@ -21,23 +22,22 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 })
 
 export async function postTranscriptToWebhook(index: number): Promise<string> {
-  const localRaw = await chrome.storage.local.get(["meetings"])
-  const syncRaw = await chrome.storage.sync.get(["webhookUrl", "webhookBodyType"])
-
-  const meetings = localRaw.meetings as Meeting[] | undefined
-  const webhookUrl = syncRaw.webhookUrl as string | undefined
-  const webhookBodyType = (syncRaw.webhookBodyType as string) === "advanced" ? "advanced" : "simple"
+  const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([
+    StorageLocal.getMeetings(),
+    StorageSync.getWebhookConfig(),
+  ])
 
   if (!webhookUrl) throw { errorCode: ErrorCode.NO_WEBHOOK_URL, errorMessage: "No webhook URL configured" }
-  if (!meetings || !meetings[index]) throw { errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" }
+  if (!meetings[index]) throw { errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" }
 
   const urlObj = new URL(webhookUrl)
   const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`
   const hasPermission = await new Promise<boolean>(res => chrome.permissions.contains({ origins: [originPattern] }, res))
   if (!hasPermission) throw { errorCode: ErrorCode.NO_HOST_PERMISSION, errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission." }
 
-  const meeting = meetings[index]
-  const webhookData: WebhookBody = webhookBodyType === "advanced"
+  const meeting: Meeting = meetings[index]
+  const bodyType = webhookBodyType === "advanced" ? "advanced" : "simple"
+  const webhookData: WebhookBody = bodyType === "advanced"
     ? {
         webhookBodyType: "advanced",
         meetingSoftware: meeting.meetingSoftware || "",
@@ -65,7 +65,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
 
   if (!response.ok) {
     meetings[index].webhookPostStatus = "failed"
-    await chrome.storage.local.set({ meetings })
+    await StorageLocal.saveMeetings(meetings)
     chrome.notifications.create({
       type: "basic",
       iconUrl: "icon.png",
@@ -78,6 +78,6 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
   }
 
   meetings[index].webhookPostStatus = "successful"
-  await chrome.storage.local.set({ meetings })
+  await StorageLocal.saveMeetings(meetings)
   return "Webhook posted successfully"
 }

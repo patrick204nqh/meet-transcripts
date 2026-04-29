@@ -1,5 +1,6 @@
 import type { ExtensionMessage, ExtensionResponse, ErrorObject } from '../types'
 import { ErrorCode } from '../shared/errors'
+import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { processLastMeeting, recoverLastMeeting } from './meeting-storage'
 import { downloadTranscript } from './download'
 import { postTranscriptToWebhook } from './webhook'
@@ -15,17 +16,14 @@ chrome.runtime.onMessage.addListener((messageUntyped, sender, sendResponse) => {
   if (message.type === "new_meeting_started") {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tabId = tabs[0]?.id
-      if (tabId === undefined) return
-      chrome.storage.local.set({ meetingTabId: tabId }, () => {
-        console.log("Meeting tab id saved")
-      })
+      if (tabId !== undefined) StorageLocal.setMeetingTabId(tabId).then(() => console.log("Meeting tab id saved"))
     })
     chrome.action.setBadgeText({ text: "REC" })
     chrome.action.setBadgeBackgroundColor({ color: "#c0392b" })
   }
 
   if (message.type === "meeting_ended") {
-    chrome.storage.local.set({ meetingTabId: "processing" }, () => {
+    StorageLocal.setMeetingTabId("processing").then(() => {
       processLastMeeting()
         .then(() => sendResponse({ success: true } satisfies ExtensionResponse))
         .catch((error: ErrorObject) => sendResponse({ success: false, message: error } satisfies ExtensionResponse))
@@ -72,11 +70,10 @@ chrome.runtime.onMessage.addListener((messageUntyped, sender, sendResponse) => {
 })
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  chrome.storage.local.get(["meetingTabId"], (raw) => {
-    const result = raw as { meetingTabId?: number | string | null }
-    if (tabId === result.meetingTabId) {
+  StorageLocal.getMeetingTabId().then((meetingTabId) => {
+    if (tabId === meetingTabId) {
       console.log("Successfully intercepted tab close")
-      chrome.storage.local.set({ meetingTabId: "processing" }, () => {
+      StorageLocal.setMeetingTabId("processing").then(() => {
         processLastMeeting().finally(() => clearTabIdAndApplyUpdate())
       })
     }
@@ -84,12 +81,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 })
 
 chrome.runtime.onUpdateAvailable.addListener(() => {
-  chrome.storage.local.get(["meetingTabId"], (raw) => {
-    const result = raw as { meetingTabId?: number | string | null }
-    if (result.meetingTabId) {
-      chrome.storage.local.set({ isDeferredUpdatedAvailable: true }, () => {
-        console.log("Deferred update flag set")
-      })
+  StorageLocal.getMeetingTabId().then((meetingTabId) => {
+    if (meetingTabId) {
+      StorageLocal.setDeferredUpdate(true).then(() => console.log("Deferred update flag set"))
     } else {
       console.log("No active meeting, applying update immediately")
       chrome.runtime.reload()
@@ -103,21 +97,12 @@ chrome.permissions.onAdded.addListener(() => {
 
 chrome.runtime.onInstalled.addListener(() => {
   reRegisterContentScripts()
-  chrome.storage.sync.get(
-    ["autoPostWebhookAfterMeeting", "autoDownloadFileAfterMeeting", "operationMode", "webhookBodyType"],
-    (raw) => {
-      const sync = raw as {
-        autoPostWebhookAfterMeeting?: boolean
-        autoDownloadFileAfterMeeting?: boolean
-        operationMode?: string
-        webhookBodyType?: string
-      }
-      chrome.storage.sync.set({
-        autoPostWebhookAfterMeeting: sync.autoPostWebhookAfterMeeting === false ? false : true,
-        autoDownloadFileAfterMeeting: sync.autoDownloadFileAfterMeeting === false ? false : true,
-        operationMode: sync.operationMode === "manual" ? "manual" : "auto",
-        webhookBodyType: sync.webhookBodyType === "advanced" ? "advanced" : "simple",
-      })
-    }
-  )
+  StorageSync.getSettings().then((sync) => {
+    StorageSync.saveSettings({
+      autoPostWebhookAfterMeeting: sync.autoPostWebhookAfterMeeting === false ? false : true,
+      autoDownloadFileAfterMeeting: sync.autoDownloadFileAfterMeeting === false ? false : true,
+      operationMode: sync.operationMode === "manual" ? "manual" : "auto",
+      webhookBodyType: sync.webhookBodyType === "advanced" ? "advanced" : "simple",
+    })
+  })
 })

@@ -1,15 +1,13 @@
-export function clearTabIdAndApplyUpdate(): void {
+import { StorageLocal } from '../shared/storage-repo'
+
+export async function clearTabIdAndApplyUpdate(): Promise<void> {
   chrome.action.setBadgeText({ text: "" })
-  chrome.storage.local.set({ meetingTabId: null }, () => {
-    console.log("Meeting tab id cleared for next meeting")
-    chrome.storage.local.get(["isDeferredUpdatedAvailable"], (raw) => {
-      const result = raw as { isDeferredUpdatedAvailable?: boolean }
-      if (result.isDeferredUpdatedAvailable) {
-        console.log("Applying deferred update")
-        chrome.storage.local.set({ isDeferredUpdatedAvailable: false }, () => {
-          chrome.runtime.reload()
-        })
-      }
-    })
-  })
+  await StorageLocal.setMeetingTabId(null)
+  console.log("Meeting tab id cleared for next meeting")
+
+  if (await StorageLocal.isDeferredUpdateAvailable()) {
+    console.log("Applying deferred update")
+    await StorageLocal.setDeferredUpdate(false)
+    chrome.runtime.reload()
+  }
 }
