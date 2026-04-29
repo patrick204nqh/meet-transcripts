@@ -1,22 +1,19 @@
-// @ts-check
-/// <reference path="../types/chrome.d.ts" />
-/// <reference path="../types/index.js" />
-
-import { state } from './state.js'
-import { waitForElement, showNotification } from './ui.js'
-import { overWriteChromeStorage, recoverLastMeeting } from './storage.js'
-import { checkExtensionStatus, meetingRoutines } from './meeting.js'
+import type { ErrorObject } from './types'
+import { state } from './state'
+import { waitForElement, showNotification } from './ui'
+import { overWriteChromeStorage, recoverLastMeeting } from './storage'
+import { checkExtensionStatus, meetingRoutines } from './meeting'
 
 // Attempt to recover last meeting, if any. Abort if it takes more than 2 seconds.
 Promise.race([
   recoverLastMeeting(),
-  new Promise((_, reject) =>
+  new Promise<never>((_, reject) =>
     setTimeout(() => reject({ errorCode: "016", errorMessage: "Recovery timed out" }), 2000)
   )
 ])
-  .catch((error) => {
-    const parsedError = /** @type {ErrorObject} */ (error)
-    if ((parsedError.errorCode !== "013") && (parsedError.errorCode !== "014")) {
+  .catch((error: unknown) => {
+    const parsedError = error as ErrorObject
+    if (parsedError.errorCode !== "013" && parsedError.errorCode !== "014") {
       console.error(parsedError.errorMessage)
     }
   })

@@ -3,7 +3,7 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   build: {
     lib: {
-      entry: 'src/content-google-meet.js',
+      entry: 'src/content-google-meet.ts',
       formats: ['iife'],
       name: 'MeetTranscripts',
     },

@@ -1,0 +1,69 @@
+export interface TranscriptBlock {
+  personName: string
+  timestamp: string
+  transcriptText: string
+}
+
+export interface ChatMessage {
+  personName: string
+  timestamp: string
+  chatMessageText: string
+}
+
+export type MeetingSoftware = "Google Meet" | "" | undefined
+export type MeetingTabId = number | "processing" | null
+export type OperationMode = "auto" | "manual"
+export type WebhookBodyType = "simple" | "advanced"
+
+export interface Meeting {
+  meetingSoftware?: MeetingSoftware
+  meetingTitle?: string
+  meetingStartTimestamp: string
+  meetingEndTimestamp: string
+  transcript: TranscriptBlock[]
+  chatMessages: ChatMessage[]
+  webhookPostStatus: "new" | "failed" | "successful"
+}
+
+export interface ExtensionStatusJSON {
+  status: number
+  message: string
+  showBetaMessage?: boolean
+}
+
+export interface ErrorObject {
+  errorCode: string
+  errorMessage: string
+}
+
+export type ExtensionMessage =
+  | { type: "new_meeting_started" }
+  | { type: "meeting_ended" }
+  | { type: "download_transcript_at_index"; index: number }
+  | { type: "post_webhook_at_index"; index: number }
+  | { type: "recover_last_meeting" }
+  | { type: "open_popup" }
+
+export interface ExtensionResponse {
+  success: boolean
+  message?: string | ErrorObject
+}
+
+export type Platform = "google_meet"
+
+export interface AppState {
+  userName: string
+  transcript: TranscriptBlock[]
+  transcriptTargetBuffer: Element | null
+  personNameBuffer: string
+  transcriptTextBuffer: string
+  timestampBuffer: string
+  chatMessages: ChatMessage[]
+  meetingStartTimestamp: string
+  meetingTitle: string
+  isTranscriptDomErrorCaptured: boolean
+  isChatMessagesDomErrorCaptured: boolean
+  hasMeetingStarted: boolean
+  hasMeetingEnded: boolean
+  extensionStatusJSON: ExtensionStatusJSON | null
+}
