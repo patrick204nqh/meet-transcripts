@@ -2,14 +2,14 @@
  * @typedef {Object} TranscriptBlock A chunk of transcript
  * @property {string} personName name of the person who spoke
  * @property {string} timestamp ISO timestamp of when the words were spoken
- * @property {string} transcriptText actual transcript text
+ * @property {string} text actual transcript text
  */
 
 /**
  * @typedef {Object} ChatMessage A chat message
  * @property {string} personName name of the person who sent the message
  * @property {string} timestamp ISO timestamp of when the message was sent
- * @property {string} chatMessageText actual message text
+ * @property {string} text actual message text
  */
 
 /**

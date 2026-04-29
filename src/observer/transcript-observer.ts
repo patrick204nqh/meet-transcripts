@@ -7,7 +7,7 @@ export function insertGapMarker(): void {
   state.transcript.push({
     personName: "[meet-transcripts]",
     timestamp: new Date().toISOString(),
-    transcriptText: "[Captions unavailable — tab was not in focus]",
+    text: "[Captions unavailable — tab was not in focus]",
   })
   persistStateFields(["transcript"], false)
 }
@@ -16,7 +16,7 @@ export function pushBufferToTranscript(): void {
   state.transcript.push({
     personName: state.personNameBuffer === "You" ? state.userName : state.personNameBuffer,
     timestamp: state.timestampBuffer,
-    transcriptText: state.transcriptTextBuffer,
+    text: state.transcriptTextBuffer,
   })
   persistStateFields(["transcript"], false)
 }

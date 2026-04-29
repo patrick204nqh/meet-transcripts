@@ -1,13 +1,13 @@
 export interface TranscriptBlock {
   personName: string
   timestamp: string
-  transcriptText: string
+  text: string
 }
 
 export interface ChatMessage {
   personName: string
   timestamp: string
-  chatMessageText: string
+  text: string
 }
 
 export type MeetingSoftware = "Google Meet" | "" | undefined

@@ -7,7 +7,7 @@ import { persistStateFields } from '../state-sync'
 export function pushUniqueChatBlock(chatBlock: ChatMessage): void {
   const isExisting = state.chatMessages.some(item =>
     item.personName === chatBlock.personName &&
-    item.chatMessageText === chatBlock.chatMessageText
+    item.text === chatBlock.text
   )
   if (!isExisting) {
     console.log("Chat message captured")
@@ -34,7 +34,7 @@ export function chatMessagesMutationCallback(_mutationsList: MutationRecord[]): 
     const chatMessageText = (chatMessageElement?.lastChild?.lastChild?.firstChild?.firstChild?.firstChild as Element | null)?.textContent ?? null
 
     if (personName && chatMessageText) {
-      const chatMessageBlock: ChatMessage = { personName, timestamp, chatMessageText }
+      const chatMessageBlock: ChatMessage = { personName, timestamp, text: chatMessageText }
       pushUniqueChatBlock(chatMessageBlock)
     }
   } catch (err) {
