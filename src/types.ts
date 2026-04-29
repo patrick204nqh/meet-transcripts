@@ -14,6 +14,7 @@ export type MeetingSoftware = "Google Meet" | undefined
 export type MeetingTabId = number | "processing" | null
 export type OperationMode = "auto" | "manual"
 export type WebhookBodyType = "simple" | "advanced"
+export type MeetingEndReason = "user_click" | "page_unload"
 
 export interface Meeting {
   software?: MeetingSoftware
@@ -56,16 +57,24 @@ export interface ErrorObject {
   errorMessage: string
 }
 
+export interface DebugState {
+  meetingTabId: MeetingTabId
+  hasMeetingData: boolean
+  meetingCount: number
+  lastMeetingStart?: string
+}
+
 export type ExtensionMessage =
   | { type: "new_meeting_started" }
-  | { type: "meeting_ended" }
+  | { type: "meeting_ended"; reason: MeetingEndReason }
   | { type: "download_transcript_at_index"; index: number }
   | { type: "post_webhook_at_index"; index: number }
   | { type: "recover_last_meeting" }
   | { type: "open_popup" }
+  | { type: "get_debug_state" }
 
-export type ExtensionResponse =
-  | { success: true; data?: string }
+export type ExtensionResponse<T = void> =
+  | { success: true; data: T }
   | { success: false; error: ErrorObject }
 
 export type Platform = "google_meet"
