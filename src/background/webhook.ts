@@ -40,19 +40,19 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
   const webhookData: WebhookBody = bodyType === "advanced"
     ? {
         webhookBodyType: "advanced",
-        meetingSoftware: meeting.meetingSoftware || "",
-        meetingTitle: meeting.meetingTitle || "",
-        meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toISOString(),
-        meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toISOString(),
+        software: meeting.software || "",
+        title: meeting.title || "",
+        startTimestamp: new Date(meeting.startTimestamp).toISOString(),
+        endTimestamp: new Date(meeting.endTimestamp).toISOString(),
         transcript: meeting.transcript,
         chatMessages: meeting.chatMessages,
       }
     : {
         webhookBodyType: "simple",
-        meetingSoftware: meeting.meetingSoftware || "",
-        meetingTitle: meeting.meetingTitle || "",
-        meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
-        meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+        software: meeting.software || "",
+        title: meeting.title || "",
+        startTimestamp: new Date(meeting.startTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+        endTimestamp: new Date(meeting.endTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
         transcript: getTranscriptString(meeting.transcript),
         chatMessages: getChatMessagesString(meeting.chatMessages),
       }

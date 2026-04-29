@@ -2,9 +2,9 @@ import type { Meeting, MeetingTabId, MeetingSoftware, TranscriptBlock, ChatMessa
 
 export interface LocalState {
   meetingTabId: MeetingTabId
-  meetingSoftware: MeetingSoftware
-  meetingTitle: string
-  meetingStartTimestamp: string
+  software: MeetingSoftware
+  title: string
+  startTimestamp: string
   transcript: TranscriptBlock[]
   chatMessages: ChatMessage[]
   isDeferredUpdateAvailable: boolean
@@ -19,10 +19,39 @@ export interface SyncSettings {
   webhookUrl: string
 }
 
+function migrateTranscriptBlock(raw: Record<string, unknown>): TranscriptBlock {
+  return {
+    personName: raw.personName as string,
+    timestamp: raw.timestamp as string,
+    text: (raw.text ?? raw.transcriptText) as string ?? "",
+  }
+}
+
+function migrateChatMessage(raw: Record<string, unknown>): ChatMessage {
+  return {
+    personName: raw.personName as string,
+    timestamp: raw.timestamp as string,
+    text: (raw.text ?? raw.chatMessageText) as string ?? "",
+  }
+}
+
+function migrateMeeting(raw: Record<string, unknown>): Meeting {
+  return {
+    software: (raw.software ?? raw.meetingSoftware) as MeetingSoftware,
+    title: (raw.title ?? raw.meetingTitle) as string | undefined,
+    startTimestamp: (raw.startTimestamp ?? raw.meetingStartTimestamp) as string,
+    endTimestamp: (raw.endTimestamp ?? raw.meetingEndTimestamp) as string,
+    transcript: ((raw.transcript ?? []) as Record<string, unknown>[]).map(migrateTranscriptBlock),
+    chatMessages: ((raw.chatMessages ?? []) as Record<string, unknown>[]).map(migrateChatMessage),
+    webhookPostStatus: (raw.webhookPostStatus ?? "new") as "new" | "failed" | "successful",
+  }
+}
+
 export const StorageLocal = {
   getMeetings: async (): Promise<Meeting[]> => {
     const raw = await chrome.storage.local.get(["meetings"])
-    return (raw.meetings as Meeting[] | undefined) ?? []
+    const meetings = (raw.meetings as Record<string, unknown>[] | undefined) ?? []
+    return meetings.map(migrateMeeting)
   },
 
   setMeetings: (meetings: Meeting[]): Promise<void> =>
@@ -38,12 +67,19 @@ export const StorageLocal = {
 
   getCurrentMeetingData: async (): Promise<Partial<LocalState>> => {
     const raw = await chrome.storage.local.get([
-      "meetingSoftware", "meetingTitle", "meetingStartTimestamp", "transcript", "chatMessages",
+      "software", "title", "startTimestamp", "transcript", "chatMessages",
+      "meetingSoftware", "meetingTitle", "meetingStartTimestamp",
     ])
-    return raw as Partial<LocalState>
+    return {
+      software: (raw.software ?? raw.meetingSoftware) as MeetingSoftware | undefined,
+      title: (raw.title ?? raw.meetingTitle) as string | undefined,
+      startTimestamp: (raw.startTimestamp ?? raw.meetingStartTimestamp) as string | undefined,
+      transcript: raw.transcript as TranscriptBlock[] | undefined,
+      chatMessages: raw.chatMessages as ChatMessage[] | undefined,
+    }
   },
 
-  setCurrentMeetingData: (data: Partial<Pick<LocalState, "meetingSoftware" | "meetingTitle" | "meetingStartTimestamp" | "transcript" | "chatMessages">>): Promise<void> =>
+  setCurrentMeetingData: (data: Partial<Pick<LocalState, "software" | "title" | "startTimestamp" | "transcript" | "chatMessages">>): Promise<void> =>
     chrome.storage.local.set(data),
 
   getDeferredUpdatePending: async (): Promise<boolean> => {

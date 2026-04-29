@@ -19,7 +19,7 @@ Promise.race([
     }
   })
   .finally(() => {
-    persistStateFields(["meetingSoftware", "meetingStartTimestamp", "meetingTitle", "transcript", "chatMessages"], false)
+    persistStateFields(["software", "startTimestamp", "title", "transcript", "chatMessages"], false)
   })
 
 checkExtensionStatus().finally(() => {

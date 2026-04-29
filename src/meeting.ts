@@ -31,8 +31,8 @@ export function updateMeetingTitle(): void {
     }, 7000)
 
     function handleMeetingTitleElementChange(): void {
-      state.meetingTitle = meetingTitleElement.innerText
-      persistStateFields(["meetingTitle"], false)
+      state.title = meetingTitleElement.innerText
+      persistStateFields(["title"], false)
     }
   })
 }
@@ -57,8 +57,8 @@ export function meetingRoutines(uiType: number): void {
     const message: ExtensionMessage = { type: "new_meeting_started" }
     chrome.runtime.sendMessage(message, () => { })
     state.hasMeetingStarted = true
-    state.meetingStartTimestamp = new Date().toISOString()
-    persistStateFields(["meetingStartTimestamp"], false)
+    state.startTimestamp = new Date().toISOString()
+    persistStateFields(["startTimestamp"], false)
 
     updateMeetingTitle()
 

@@ -7,7 +7,7 @@ import { postTranscriptToWebhook } from './webhook'
 export async function pickupLastMeeting(): Promise<string> {
   const data = await StorageLocal.getCurrentMeetingData()
 
-  if (!data.meetingStartTimestamp) {
+  if (!data.startTimestamp) {
     throw { errorCode: ErrorCode.NO_MEETINGS, errorMessage: "No meetings found. May be attend one?" }
   }
   if (!data.transcript?.length && !data.chatMessages?.length) {
@@ -15,10 +15,10 @@ export async function pickupLastMeeting(): Promise<string> {
   }
 
   const newEntry: Meeting = {
-    meetingSoftware: data.meetingSoftware ?? "",
-    meetingTitle: data.meetingTitle,
-    meetingStartTimestamp: data.meetingStartTimestamp,
-    meetingEndTimestamp: new Date().toISOString(),
+    software: data.software ?? "",
+    title: data.title,
+    startTimestamp: data.startTimestamp,
+    endTimestamp: new Date().toISOString(),
     transcript: data.transcript ?? [],
     chatMessages: data.chatMessages ?? [],
     webhookPostStatus: "new",
@@ -57,12 +57,12 @@ export async function recoverLastMeeting(): Promise<string> {
     StorageLocal.getCurrentMeetingData(),
   ])
 
-  if (!data.meetingStartTimestamp) {
+  if (!data.startTimestamp) {
     throw { errorCode: ErrorCode.NO_MEETINGS, errorMessage: "No meetings found. May be attend one?" }
   }
 
   const lastSaved = meetings.length > 0 ? meetings[meetings.length - 1] : undefined
-  if (!lastSaved || data.meetingStartTimestamp !== lastSaved.meetingStartTimestamp) {
+  if (!lastSaved || data.startTimestamp !== lastSaved.startTimestamp) {
     await finalizeMeeting()
     return "Recovered last meeting to the best possible extent"
   }

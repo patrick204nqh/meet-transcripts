@@ -35,13 +35,13 @@ export async function downloadTranscript(index: number, _isWebhookEnabled: boole
   const meeting = meetings[index]
   const invalidFilenameRegex = /[:?"*<>|~/\\\u{1}-\u{1f}\u{7f}\u{80}-\u{9f}\p{Cf}\p{Cn}]|^[.\u{0}\p{Zl}\p{Zp}\p{Zs}]|[.\u{0}\p{Zl}\p{Zp}\p{Zs}]$|^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?=\.|$)/gui
   let sanitisedTitle = "Meeting"
-  if (meeting.meetingTitle) {
-    sanitisedTitle = meeting.meetingTitle.replaceAll(invalidFilenameRegex, "_")
+  if (meeting.title) {
+    sanitisedTitle = meeting.title.replaceAll(invalidFilenameRegex, "_")
   }
 
-  const timestamp = new Date(meeting.meetingStartTimestamp)
+  const timestamp = new Date(meeting.startTimestamp)
   const formattedTimestamp = timestamp.toLocaleString("default", timeFormat).replace(/[/:]/g, "-")
-  const prefix = meeting.meetingSoftware ? `${meeting.meetingSoftware} transcript` : "Transcript"
+  const prefix = meeting.software ? `${meeting.software} transcript` : "Transcript"
   const fileName = `meet-transcripts/${prefix}-${sanitisedTitle} at ${formattedTimestamp} on.txt`
 
   let content = getTranscriptString(meeting.transcript)
