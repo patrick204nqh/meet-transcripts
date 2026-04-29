@@ -41,6 +41,17 @@ async function seedMeetings(page, meetings) {
 test.describe('Meetings page', () => {
   test.beforeEach(async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+    // Seed known-good sync defaults before each test to avoid a race between
+    // background.js onInstalled (which sets defaults) and the page reading storage.
+    await page.evaluate(() => new Promise(resolve =>
+      chrome.storage.sync.set({
+        autoPostWebhookAfterMeeting: true,
+        autoDownloadFileAfterMeeting: true,
+        webhookBodyType: 'simple',
+        operationMode: 'auto',
+      }, resolve)
+    ));
+    await page.reload();
   });
 
   test('renders the page title', async ({ page }) => {

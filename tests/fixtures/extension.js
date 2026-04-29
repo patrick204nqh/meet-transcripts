@@ -20,10 +20,14 @@ const extensionPath = path.join(__dirname, '../../extension');
 export const test = base.extend({
   // Persistent context with the extension loaded — shared for the duration of each test
   context: async ({}, use) => {
+    const headed = process.env.HEADED === '1'
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'playwright-ext-'));
     const context = await chromium.launchPersistentContext(userDataDir, {
+      // Always false — prevents Playwright from injecting the legacy --headless flag,
+      // which Chrome ignores in favour of --headless=new but breaks extension service workers.
       headless: false,
       args: [
+        ...(!headed ? ['--headless=new'] : []),
         `--disable-extensions-except=${extensionPath}`,
         `--load-extension=${extensionPath}`,
       ],
