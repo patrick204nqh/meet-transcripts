@@ -15,7 +15,7 @@ export async function pickupLastMeeting(): Promise<string> {
   }
 
   const newEntry: Meeting = {
-    software: data.software ?? "",
+    software: data.software,
     title: data.title,
     startTimestamp: data.startTimestamp,
     endTimestamp: new Date().toISOString(),

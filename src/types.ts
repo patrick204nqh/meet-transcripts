@@ -10,7 +10,7 @@ export interface ChatMessage {
   text: string
 }
 
-export type MeetingSoftware = "Google Meet" | "" | undefined
+export type MeetingSoftware = "Google Meet" | undefined
 export type MeetingTabId = number | "processing" | null
 export type OperationMode = "auto" | "manual"
 export type WebhookBodyType = "simple" | "advanced"
