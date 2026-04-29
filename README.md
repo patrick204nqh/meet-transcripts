@@ -41,13 +41,20 @@ All processing stays in the browser. Nothing leaves the device unless you explic
 This extension is installed in Chrome as an unpacked extension. It requires **developer mode** enabled.
 
 1. Clone or download this repository
-2. Open Chrome and go to `chrome://extensions`
-3. Enable **Developer mode** (toggle in the top-right corner)
-4. Click **Load unpacked**
-5. Select the `extension/` folder from this repository
-6. The Meet Transcripts icon will appear in your Chrome toolbar
+2. Install dependencies and build the content script:
+   ```sh
+   npm install
+   npm run build
+   ```
+3. Open Chrome and go to `chrome://extensions`
+4. Enable **Developer mode** (toggle in the top-right corner)
+5. Click **Load unpacked**
+6. Select the `extension/` folder from this repository
+7. The Meet Transcripts icon will appear in your Chrome toolbar
 
-To update: pull the latest `main`, then click the refresh icon on the extension card at `chrome://extensions`.
+To update: pull the latest `main`, run `npm run build`, then click the refresh icon on the extension card at `chrome://extensions`.
+
+> **Development:** use `npm run dev` to watch `src/` for changes and rebuild `extension/content-google-meet.js` automatically.
 
 ---
 
