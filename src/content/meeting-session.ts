@@ -1,4 +1,4 @@
-import type { ExtensionMessage } from '../types'
+import type { ExtensionMessage, MeetingEndReason } from '../types'
 import { state } from './state'
 import { mutationConfig } from './constants'
 import { selectElements, waitForElement, showNotification, handleContentError } from './ui'
@@ -158,24 +158,31 @@ export function meetingRoutines(uiType: number): void {
         handleContentError("003", err)
       })
 
-    // MEETING END
+    // MEETING END — shared teardown called from click, pagehide, or any future exit path
+    const handleMeetingEnd = (reason: MeetingEndReason): void => {
+      if (state.hasMeetingEnded) return
+      state.hasMeetingEnded = true
+      transcriptObserver?.disconnect()
+      chatMessagesObserver?.disconnect()
+      captionWatchdog?.disconnect()
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+      window.removeEventListener("pagehide", handlePageHide)
+
+      if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") {
+        pushBufferToTranscript()
+      }
+      persistStateAndSignalEnd(["transcript", "chatMessages"], reason).catch(console.error)
+    }
+
+    const handlePageHide = (): void => handleMeetingEnd("page_unload")
+    window.addEventListener("pagehide", handlePageHide)
+
     try {
       const endButton = selectElements(meetingEndIconData.selector, meetingEndIconData.text)[0]
       const clickTarget = endButton?.parentElement?.parentElement
       if (!clickTarget) throw new Error("Call end button element not found in DOM")
 
-      clickTarget.addEventListener("click", () => {
-        state.hasMeetingEnded = true
-        transcriptObserver?.disconnect()
-        chatMessagesObserver?.disconnect()
-        captionWatchdog?.disconnect()
-        document.removeEventListener("visibilitychange", onVisibilityChange)
-
-        if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") {
-          pushBufferToTranscript()
-        }
-        persistStateFields(["transcript", "chatMessages"])
-      })
+      clickTarget.addEventListener("click", () => handleMeetingEnd("user_click"))
     } catch (err) {
       handleContentError("004", err)
     }
