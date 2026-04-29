@@ -1,6 +1,6 @@
 import { state } from '../state'
-import { mutationConfig, bugStatusJson, reportErrorMessage } from '../constants'
-import { showNotification, logError } from '../ui'
+import { mutationConfig } from '../constants'
+import { handleContentError } from '../ui'
 import { persistStateFields } from '../state-sync'
 
 export function insertGapMarker(): void {
@@ -9,7 +9,7 @@ export function insertGapMarker(): void {
     timestamp: new Date().toISOString(),
     text: "[Captions unavailable — tab was not in focus]",
   })
-  persistStateFields(["transcript"], false)
+  persistStateFields(["transcript"])
 }
 
 export function pushBufferToTranscript(): void {
@@ -18,7 +18,7 @@ export function pushBufferToTranscript(): void {
     timestamp: state.timestampBuffer,
     text: state.transcriptTextBuffer,
   })
-  persistStateFields(["transcript"], false)
+  persistStateFields(["transcript"])
 }
 
 export function transcriptMutationCallback(mutationsList: MutationRecord[]): void {
@@ -71,11 +71,8 @@ export function transcriptMutationCallback(mutationsList: MutationRecord[]): voi
 
       console.log("Transcript captured")
     } catch (err) {
-      console.error(err)
       if (!state.isTranscriptDomErrorCaptured && !state.hasMeetingEnded) {
-        console.log(reportErrorMessage)
-        showNotification(bugStatusJson)
-        logError("005", err)
+        handleContentError("005", err)
       }
       state.isTranscriptDomErrorCaptured = true
     }
