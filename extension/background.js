@@ -23,13 +23,16 @@ const PLATFORM_CONFIGS = {
 
 
 chrome.runtime.onMessage.addListener(function (messageUnTyped, sender, sendResponse) {
+    if (sender.id !== chrome.runtime.id) return
+
     const message = /** @type {ExtensionMessage} */ (messageUnTyped)
     console.log(message.type)
 
     if (message.type === "new_meeting_started") {
         // Saving current tab id, to download transcript when this tab is closed
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-            const tabId = tabs[0].id
+            const tabId = tabs[0]?.id
+            if (tabId === undefined) return
             chrome.storage.local.set({ meetingTabId: tabId }, function () {
                 console.log("Meeting tab id saved")
             })
@@ -459,6 +462,18 @@ function postTranscriptToWebhook(index) {
                                 transcript: getTranscriptString(meeting.transcript),
                                 chatMessages: getChatMessagesString(meeting.chatMessages)
                             }
+                        }
+
+                        // Verify host permission exists before fetching — the URL may have
+                        // synced from another device where permission was originally granted.
+                        const urlObj = new URL(resultSync.webhookUrl)
+                        const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`
+                        const hasPermission = await new Promise(res =>
+                            chrome.permissions.contains({ origins: [originPattern] }, res)
+                        )
+                        if (!hasPermission) {
+                            reject({ errorCode: "016", errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission." })
+                            return
                         }
 
                         // Post to webhook

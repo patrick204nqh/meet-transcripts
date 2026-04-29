@@ -355,13 +355,7 @@ function transcriptMutationCallback(mutationsList) {
         }
       }
 
-      // Logs to indicate that the extension is working
-      if (transcriptTextBuffer.length > 125) {
-        console.log(transcriptTextBuffer.slice(0, 50) + "   ...   " + transcriptTextBuffer.slice(-50))
-      }
-      else {
-        console.log(transcriptTextBuffer)
-      }
+      console.log("Transcript captured")
     } catch (err) {
       console.error(err)
       if (!isTranscriptDomErrorCaptured && !hasMeetingEnded) {
@@ -453,7 +447,7 @@ function pushUniqueChatBlock(chatBlock) {
     (item.chatMessageText === chatBlock.chatMessageText)
   )
   if (!isExisting) {
-    console.log(chatBlock)
+    console.log("Chat message captured")
     chatMessages.push(chatBlock)
     overWriteChromeStorage(["chatMessages"], false)
   }
