@@ -18,8 +18,6 @@ export type WebhookBodyType = "simple" | "advanced"
 export interface Meeting {
   meetingSoftware?: MeetingSoftware
   meetingTitle?: string
-  /** @deprecated renamed to meetingTitle in v3.1.0 */
-  title?: string
   meetingStartTimestamp: string
   meetingEndTimestamp: string
   transcript: TranscriptBlock[]
