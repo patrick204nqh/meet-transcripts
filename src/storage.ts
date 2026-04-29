@@ -1,5 +1,6 @@
 import type { ErrorObject } from './types'
-import { state, meetingSoftware } from './state'
+import { state } from './state'
+import { meetingSoftware } from './constants'
 import { pulseStatus } from './ui'
 import { sendMessage } from './shared/messages'
 

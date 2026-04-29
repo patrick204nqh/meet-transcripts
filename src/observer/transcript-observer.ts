@@ -1,4 +1,5 @@
-import { state, mutationConfig, extensionStatusJSON_bug, reportErrorMessage } from '../state'
+import { state } from '../state'
+import { mutationConfig, bugStatusJson, reportErrorMessage } from '../constants'
 import { showNotification, logError } from '../ui'
 import { overWriteChromeStorage } from '../storage'
 
@@ -73,7 +74,7 @@ export function transcriptMutationCallback(mutationsList: MutationRecord[]): voi
       console.error(err)
       if (!state.isTranscriptDomErrorCaptured && !state.hasMeetingEnded) {
         console.log(reportErrorMessage)
-        showNotification(extensionStatusJSON_bug)
+        showNotification(bugStatusJson)
         logError("005", err)
       }
       state.isTranscriptDomErrorCaptured = true

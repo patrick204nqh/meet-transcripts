@@ -1,5 +1,6 @@
 import type { ExtensionMessage } from './types'
-import { state, mutationConfig, extensionStatusJSON_bug } from './state'
+import { state } from './state'
+import { mutationConfig, bugStatusJson } from './constants'
 import { selectElements, waitForElement, showNotification, logError } from './ui'
 import { overWriteChromeStorage } from './storage'
 import { transcriptMutationCallback, pushBufferToTranscript, insertGapMarker } from './observer/transcript-observer'
@@ -133,7 +134,7 @@ export function meetingRoutines(uiType: number): void {
       .catch((err) => {
         console.error(err)
         state.isTranscriptDomErrorCaptured = true
-        showNotification(extensionStatusJSON_bug)
+        showNotification(bugStatusJson)
         logError("001", err)
       })
 
@@ -157,7 +158,7 @@ export function meetingRoutines(uiType: number): void {
       .catch((err) => {
         console.error(err)
         state.isChatMessagesDomErrorCaptured = true
-        showNotification(extensionStatusJSON_bug)
+        showNotification(bugStatusJson)
         logError("003", err)
       })
 
@@ -181,7 +182,7 @@ export function meetingRoutines(uiType: number): void {
       })
     } catch (err) {
       console.error(err)
-      showNotification(extensionStatusJSON_bug)
+      showNotification(bugStatusJson)
       logError("004", err)
     }
   })

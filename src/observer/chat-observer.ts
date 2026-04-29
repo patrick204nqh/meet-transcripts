@@ -1,5 +1,6 @@
 import type { ChatMessage } from '../types'
-import { state, extensionStatusJSON_bug, reportErrorMessage } from '../state'
+import { state } from '../state'
+import { bugStatusJson, reportErrorMessage } from '../constants'
 import { showNotification, logError } from '../ui'
 import { overWriteChromeStorage } from '../storage'
 
@@ -40,7 +41,7 @@ export function chatMessagesMutationCallback(_mutationsList: MutationRecord[]): 
     console.error(err)
     if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) {
       console.log(reportErrorMessage)
-      showNotification(extensionStatusJSON_bug)
+      showNotification(bugStatusJson)
       logError("006", err)
     }
     state.isChatMessagesDomErrorCaptured = true
