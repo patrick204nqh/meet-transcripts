@@ -155,6 +155,31 @@ function meetingRoutines(uiType) {
     let transcriptObserver
     /** @type {MutationObserver} */
     let chatMessagesObserver
+    /** @type {MutationObserver} */
+    let captionWatchdog
+    let isReattaching = false
+
+    const captionContainerSelector = `div[role="region"][tabindex="0"]`
+
+    const attachTranscriptObserver = (node) => {
+      transcriptObserver = new MutationObserver(transcriptMutationCallback)
+      transcriptObserver.observe(node, mutationConfig)
+      transcriptTargetBuffer = node
+    }
+
+    const onVisibilityChange = () => {
+      if (hasMeetingEnded || !hasMeetingStarted || document.hidden) return
+      if (transcriptTargetBuffer && !transcriptTargetBuffer.isConnected && !isReattaching) {
+        const captionEl = document.querySelector(captionContainerSelector)
+        if (!captionEl) return
+        isReattaching = true
+        transcriptObserver?.disconnect()
+        attachTranscriptObserver(captionEl)
+        insertGapMarker()
+        isReattaching = false
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
 
     // **** REGISTER TRANSCRIPT AND CHAT MESSAGES LISTENERS **** //
     // REGISTER TRANSCRIPT LISTENER
@@ -185,10 +210,21 @@ function meetingRoutines(uiType) {
 
         if (transcriptTargetNode) {
           // Create transcript observer instance linked to the callback function. Registered irrespective of operation mode, so that any website transcript can be picked up during the meeting, independent of the operation mode.
-          transcriptObserver = new MutationObserver(transcriptMutationCallback)
+          attachTranscriptObserver(transcriptTargetNode)
 
-          // Start observing the transcript element and chat messages element for configured mutations
-          transcriptObserver.observe(transcriptTargetNode, mutationConfig)
+          captionWatchdog = new MutationObserver(() => {
+            if (hasMeetingEnded || isReattaching) return
+            if (transcriptTargetBuffer && !transcriptTargetBuffer.isConnected) {
+              const captionEl = document.querySelector(captionContainerSelector)
+              if (!captionEl) return
+              isReattaching = true
+              transcriptObserver?.disconnect()
+              attachTranscriptObserver(captionEl)
+              insertGapMarker()
+              isReattaching = false
+            }
+          })
+          captionWatchdog.observe(document.body, { childList: true, subtree: true })
 
           // Show confirmation message from extensionStatusJSON, once observation has started, based on operation mode
           chrome.storage.sync.get(["operationMode"], function (resultSyncUntyped) {
@@ -261,6 +297,10 @@ function meetingRoutines(uiType) {
         if (chatMessagesObserver) {
           chatMessagesObserver.disconnect()
         }
+        if (captionWatchdog) {
+          captionWatchdog.disconnect()
+        }
+        document.removeEventListener("visibilitychange", onVisibilityChange)
 
         // Push any data in the buffer variables to the transcript array, but avoid pushing blank ones. Needed to handle one or more speaking when meeting ends.
         if ((personNameBuffer !== "") && (transcriptTextBuffer !== "")) {
@@ -425,6 +465,18 @@ function chatMessagesMutationCallback(mutationsList) {
 
 
 //*********** HELPER FUNCTIONS **********//
+/**
+ * @description Inserts a sentinel block marking a gap when captions were unavailable (e.g. tab in background).
+ */
+function insertGapMarker() {
+  transcript.push({
+    "personName": "[meet-transcripts]",
+    "timestamp": new Date().toISOString(),
+    "transcriptText": "[Captions unavailable — tab was not in focus]"
+  })
+  overWriteChromeStorage(["transcript"], false)
+}
+
 /**
  * @description Pushes data in the buffer to transcript array as a transcript block
  */
