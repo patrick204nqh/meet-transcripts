@@ -1,6 +1,6 @@
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal } from '../shared/storage-repo'
-import { getTranscriptString, getChatMessagesString, timeFormat } from '../shared/formatters'
+import { getTranscriptString, getChatMessagesString, buildTranscriptFilename } from '../shared/formatters'
 
 export async function downloadTranscript(index: number): Promise<void> {
   const meetings = await StorageLocal.getMeetings()
@@ -10,16 +10,7 @@ export async function downloadTranscript(index: number): Promise<void> {
   }
 
   const meeting = meetings[index]
-  const invalidFilenameRegex = /[:?"*<>|~/\\\u{1}-\u{1f}\u{7f}\u{80}-\u{9f}\p{Cf}\p{Cn}]|^[.\u{0}\p{Zl}\p{Zp}\p{Zs}]|[.\u{0}\p{Zl}\p{Zp}\p{Zs}]$|^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?=\.|$)/gui
-  let sanitisedTitle = "Meeting"
-  if (meeting.title) {
-    sanitisedTitle = meeting.title.replaceAll(invalidFilenameRegex, "_")
-  }
-
-  const timestamp = new Date(meeting.startTimestamp)
-  const formattedTimestamp = timestamp.toLocaleString("default", timeFormat).replace(/[/:]/g, "-")
-  const prefix = meeting.software ? `${meeting.software} transcript` : "Transcript"
-  const fileName = `meet-transcripts/${prefix}-${sanitisedTitle} at ${formattedTimestamp} on.txt`
+  const fileName = buildTranscriptFilename(meeting)
 
   let content = getTranscriptString(meeting.transcript)
   content += `\n\n---------------\nCHAT MESSAGES\n---------------\n\n`
