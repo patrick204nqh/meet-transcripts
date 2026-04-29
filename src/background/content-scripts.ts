@@ -55,7 +55,7 @@ export function registerContentScript(platform: Platform, showNotification = tru
   })
 }
 
-export function reRegisterContentScripts(): void {
+export function reRegisterContentScript(): void {
   registerContentScript("google_meet", false).catch((error) => {
     console.log(error)
   })

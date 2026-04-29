@@ -1,7 +1,7 @@
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { MeetingService } from '../services/meeting-service'
 import { clearTabIdAndApplyUpdate } from './lifecycle'
-import { reRegisterContentScripts } from './content-scripts'
+import { reRegisterContentScript } from './content-scripts'
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   StorageLocal.getMeetingTabId().then((id) => {
@@ -26,11 +26,11 @@ chrome.runtime.onUpdateAvailable.addListener(() => {
 })
 
 chrome.permissions.onAdded.addListener(() => {
-  setTimeout(() => reRegisterContentScripts(), 2000)
+  setTimeout(() => reRegisterContentScript(), 2000)
 })
 
 chrome.runtime.onInstalled.addListener(() => {
-  reRegisterContentScripts()
+  reRegisterContentScript()
   StorageSync.getSettings().then((sync) => {
     StorageSync.setSettings({
       autoPostWebhookAfterMeeting: sync.autoPostWebhookAfterMeeting !== false,
