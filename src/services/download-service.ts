@@ -4,7 +4,7 @@ import { StorageLocal } from '../shared/storage-repo'
 import { downloadTranscript, getTranscriptString, getChatMessagesString } from '../background/download'
 
 export const DownloadService = {
-  download: async (index: number): Promise<void> => downloadTranscript(index, false),
+  downloadTranscript: async (index: number): Promise<void> => downloadTranscript(index, false),
 
   formatTranscript: (meeting: Meeting): string => getTranscriptString(meeting.transcript),
 

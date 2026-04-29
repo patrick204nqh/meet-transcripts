@@ -1,7 +1,7 @@
-import { processLastMeeting, recoverLastMeeting, pickupLastMeetingFromStorage } from '../background/meeting-storage'
+import { finalizeMeeting, recoverLastMeeting, pickupLastMeeting } from '../background/meeting-storage'
 
 export const MeetingService = {
-  finalizeMeeting: (): Promise<string> => processLastMeeting(),
+  finalizeMeeting: (): Promise<string> => finalizeMeeting(),
   recoverMeeting: (): Promise<string> => recoverLastMeeting(),
-  pickupFromStorage: (): Promise<string> => pickupLastMeetingFromStorage(),
+  pickupLastMeeting: (): Promise<string> => pickupLastMeeting(),
 }

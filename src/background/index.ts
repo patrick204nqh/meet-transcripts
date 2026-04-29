@@ -37,13 +37,13 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
 
   if (msg.type === "download_transcript_at_index") {
     isValidIndex(msg.index)
-      ? DownloadService.download(msg.index).then(() => sendResponse(ok)).catch((e: ErrorObject) => sendResponse(err(e)))
+      ? DownloadService.downloadTranscript(msg.index).then(() => sendResponse(ok)).catch((e: ErrorObject) => sendResponse(err(e)))
       : sendResponse(invalidIndex)
   }
 
   if (msg.type === "post_webhook_at_index") {
     isValidIndex(msg.index)
-      ? WebhookService.post(msg.index).then(() => sendResponse(ok)).catch((e: ErrorObject) => { console.error("Webhook retry failed:", e); sendResponse(err(e)) })
+      ? WebhookService.postWebhook(msg.index).then(() => sendResponse(ok)).catch((e: ErrorObject) => { console.error("Webhook retry failed:", e); sendResponse(err(e)) })
       : sendResponse(invalidIndex)
   }
 

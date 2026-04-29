@@ -4,7 +4,7 @@ import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { downloadTranscript } from './download'
 import { postTranscriptToWebhook } from './webhook'
 
-export async function pickupLastMeetingFromStorage(): Promise<string> {
+export async function pickupLastMeeting(): Promise<string> {
   const data = await StorageLocal.getCurrentMeetingData()
 
   if (!data.meetingStartTimestamp) {
@@ -32,8 +32,8 @@ export async function pickupLastMeetingFromStorage(): Promise<string> {
   return "Last meeting picked up"
 }
 
-export async function processLastMeeting(): Promise<string> {
-  await pickupLastMeetingFromStorage()
+export async function finalizeMeeting(): Promise<string> {
+  await pickupLastMeeting()
 
   const meetings = await StorageLocal.getMeetings()
   const sync = await StorageSync.getAutoActionSettings()
@@ -63,7 +63,7 @@ export async function recoverLastMeeting(): Promise<string> {
 
   const lastSaved = meetings.length > 0 ? meetings[meetings.length - 1] : undefined
   if (!lastSaved || data.meetingStartTimestamp !== lastSaved.meetingStartTimestamp) {
-    await processLastMeeting()
+    await finalizeMeeting()
     return "Recovered last meeting to the best possible extent"
   }
   return "No recovery needed"
