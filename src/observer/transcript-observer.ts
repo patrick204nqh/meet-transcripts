@@ -1,11 +1,8 @@
-// @ts-check
-/// <reference path="../../types/index.js" />
+import { state, mutationConfig, extensionStatusJSON_bug, reportErrorMessage } from '../state'
+import { showNotification, logError } from '../ui'
+import { overWriteChromeStorage } from '../storage'
 
-import { state, mutationConfig, extensionStatusJSON_bug, reportErrorMessage } from '../state.js'
-import { showNotification, logError } from '../ui.js'
-import { overWriteChromeStorage } from '../storage.js'
-
-export function insertGapMarker() {
+export function insertGapMarker(): void {
   state.transcript.push({
     personName: "[meet-transcripts]",
     timestamp: new Date().toISOString(),
@@ -14,7 +11,7 @@ export function insertGapMarker() {
   overWriteChromeStorage(["transcript"], false)
 }
 
-export function pushBufferToTranscript() {
+export function pushBufferToTranscript(): void {
   state.transcript.push({
     personName: state.personNameBuffer === "You" ? state.userName : state.personNameBuffer,
     timestamp: state.timestampBuffer,
@@ -23,24 +20,21 @@ export function pushBufferToTranscript() {
   overWriteChromeStorage(["transcript"], false)
 }
 
-/**
- * @param {MutationRecord[]} mutationsList
- */
-export function transcriptMutationCallback(mutationsList) {
+export function transcriptMutationCallback(mutationsList: MutationRecord[]): void {
   mutationsList.forEach((mutation) => {
     try {
       if (mutation.type === "characterData") {
-        const mutationTargetElement = mutation.target.parentElement
-        const transcriptUIBlocks = [...mutationTargetElement?.parentElement?.parentElement?.children || []]
-        const isLastButSecondElement = transcriptUIBlocks[transcriptUIBlocks.length - 3] === mutationTargetElement?.parentElement ? true : false
+        const mutationTargetElement = (mutation.target as Text).parentElement
+        const transcriptUIBlocks = [...(mutationTargetElement?.parentElement?.parentElement?.children ?? [])]
+        const isLastButSecondElement = transcriptUIBlocks[transcriptUIBlocks.length - 3] === mutationTargetElement?.parentElement
 
         if (isLastButSecondElement) {
-          const currentPersonName = mutationTargetElement?.previousSibling?.textContent
+          const currentPersonName = (mutationTargetElement?.previousSibling as Element | null)?.textContent
           const currentTranscriptText = mutationTargetElement?.textContent
 
           if (currentPersonName && currentTranscriptText) {
             // Dim down current transcript block
-            [...transcriptUIBlocks[transcriptUIBlocks.length - 3].children].forEach((item) => {
+            Array.from(transcriptUIBlocks[transcriptUIBlocks.length - 3]?.children ?? []).forEach((item) => {
               item.setAttribute("style", "opacity:0.2")
             })
 
@@ -65,7 +59,7 @@ export function transcriptMutationCallback(mutationsList) {
             }
           } else {
             console.log("No active transcript")
-            if ((state.personNameBuffer !== "") && (state.transcriptTextBuffer !== "")) {
+            if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") {
               pushBufferToTranscript()
             }
             state.personNameBuffer = ""
@@ -90,40 +84,17 @@ export function transcriptMutationCallback(mutationsList) {
 
 // CURRENT GOOGLE MEET TRANSCRIPT DOM. TO BE UPDATED.
 
-{/* <div class="a4cQT kV7vwc eO2Zfd" jscontroller="D1tHje" jsaction="bz0DVc:HWTqGc;E18dRb:lUFH9b;QBUr8:lUFH9b;stc2ve:oh3Xke" style="">
-  // CAPTION LANGUAGE SETTINGS. MAY OR MAY NOT HAVE CHILDREN
-  <div class="NmXUuc  P9KVBf" jscontroller="rRafu" jsaction="F41Sec:tsH52e;OmFrlf:xfAI6e(zHUIdd)"></div>
+{/* <div class="a4cQT kV7vwc eO2Zfd">
   <div class="DtJ7e">
-    <span class="frX3lc-vlkzWd  P9KVBf"></span>
-    <div jsname="dsyhDe" class="iOzk7 uYs2ee " style="">
-      //PERSON 1
-      <div class="nMcdL bj4p3b" style="">
+    <div jsname="dsyhDe" class="iOzk7 uYs2ee">
+      <div class="nMcdL bj4p3b">
         <div class="adE6rb M6cG9d">
-          <img alt="" class="Z6byG r6DyN" src="https://lh3.googleusercontent.com/a/some-url" data-iml="63197.699999999255">
-            <div class="KcIKyf jxFHg">Person 1</div>
+          <div class="KcIKyf jxFHg">Person 1</div>
         </div>
-        <div jsname="YSxPC" class="bYevke wY1pdd" style="height: 27.5443px;">
-          <div jsname="tgaKEf" class="bh44bd VbkSUe">
-            Some transcript text.
-            Some more text.</div>
-        </div>
-      </div>
-      //PERSON 2
-      <div class="nMcdL bj4p3b" style="">
-        <div class="adE6rb M6cG9d">
-          <img alt="" class="Z6byG r6DyN" src="https://lh3.googleusercontent.com/a/some-url" data-iml="63197.699999999255">
-            <div class="KcIKyf jxFHg">Person 2</div>
-        </div>
-        <div jsname="YSxPC" class="bYevke wY1pdd" style="height: 27.5443px;">
-          <div jsname="tgaKEf" class="bh44bd VbkSUe">
-            Some transcript text.
-            Some more text.</div>
+        <div jsname="YSxPC" class="bYevke wY1pdd">
+          <div jsname="tgaKEf" class="bh44bd VbkSUe">Some transcript text.</div>
         </div>
       </div>
     </div>
-    <div jsname="APQunf" class="iOzk7 uYs2ee" style="display: none;">
-    </div>
-  </div>
-  <div jscontroller="mdnBv" jsaction="stc2ve:MO88xb;QBUr8:KNou4c">
   </div>
 </div> */}

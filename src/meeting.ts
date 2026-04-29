@@ -1,27 +1,25 @@
-// @ts-check
-/// <reference path="../types/chrome.d.ts" />
-/// <reference path="../types/index.js" />
+import type { ExtensionMessage } from './types'
+import { state, mutationConfig, extensionStatusJSON_bug } from './state'
+import { selectElements, waitForElement, showNotification, logError } from './ui'
+import { overWriteChromeStorage } from './storage'
+import { transcriptMutationCallback, pushBufferToTranscript, insertGapMarker } from './observer/transcript-observer'
+import { chatMessagesMutationCallback } from './observer/chat-observer'
 
-import { state, mutationConfig, extensionStatusJSON_bug } from './state.js'
-import { selectElements, waitForElement, showNotification, logError } from './ui.js'
-import { overWriteChromeStorage } from './storage.js'
-import { transcriptMutationCallback, pushBufferToTranscript, insertGapMarker } from './observer/transcript-observer.js'
-import { chatMessagesMutationCallback } from './observer/chat-observer.js'
-
-export function checkExtensionStatus() {
+export function checkExtensionStatus(): Promise<string> {
   return new Promise((resolve) => {
     state.extensionStatusJSON = { status: 200, message: "<strong>meet-transcripts is running</strong> <br /> Do not turn off captions" }
     resolve("Extension status set to operational")
   })
 }
 
-export function updateMeetingTitle() {
+export function updateMeetingTitle(): void {
   waitForElement(".u6vdEc").then((element) => {
-    const meetingTitleElement = /** @type {HTMLDivElement} */ (element)
-    meetingTitleElement?.setAttribute("contenteditable", "true")
+    const meetingTitleElement = element as HTMLDivElement
+    if (!meetingTitleElement) return
+    meetingTitleElement.setAttribute("contenteditable", "true")
     meetingTitleElement.title = "Edit meeting title for meet-transcripts"
     meetingTitleElement.style.cssText = `text-decoration: underline white; text-underline-offset: 4px;`
-    meetingTitleElement?.addEventListener("input", handleMeetingTitleElementChange)
+    meetingTitleElement.addEventListener("input", handleMeetingTitleElementChange)
 
     // Pick up meeting name after a delay, since Google Meet updates it after a delay
     setTimeout(() => {
@@ -31,17 +29,14 @@ export function updateMeetingTitle() {
       }
     }, 7000)
 
-    function handleMeetingTitleElementChange() {
+    function handleMeetingTitleElementChange(): void {
       state.meetingTitle = meetingTitleElement.innerText
       overWriteChromeStorage(["meetingTitle"], false)
     }
   })
 }
 
-/**
- * @param {number} uiType
- */
-export function meetingRoutines(uiType) {
+export function meetingRoutines(uiType: number): void {
   const meetingEndIconData = { selector: "", text: "" }
   const captionsIconData = { selector: "", text: "" }
 
@@ -51,38 +46,35 @@ export function meetingRoutines(uiType) {
       meetingEndIconData.text = "call_end"
       captionsIconData.selector = ".google-symbols"
       captionsIconData.text = "closed_caption_off"
+      break
     default:
       break
   }
 
   waitForElement(meetingEndIconData.selector, meetingEndIconData.text).then(() => {
     console.log("Meeting started")
-    /** @type {ExtensionMessage} */
-    const message = { type: "new_meeting_started" }
-    chrome.runtime.sendMessage(message, function () { })
+    const message: ExtensionMessage = { type: "new_meeting_started" }
+    chrome.runtime.sendMessage(message, () => { })
     state.hasMeetingStarted = true
     state.meetingStartTimestamp = new Date().toISOString()
     overWriteChromeStorage(["meetingStartTimestamp"], false)
 
     updateMeetingTitle()
 
-    /** @type {MutationObserver} */
-    let transcriptObserver
-    /** @type {MutationObserver} */
-    let chatMessagesObserver
-    /** @type {MutationObserver} */
-    let captionWatchdog
+    let transcriptObserver: MutationObserver | undefined
+    let chatMessagesObserver: MutationObserver | undefined
+    let captionWatchdog: MutationObserver | undefined
     let isReattaching = false
 
     const captionContainerSelector = `div[role="region"][tabindex="0"]`
 
-    const attachTranscriptObserver = (node) => {
+    const attachTranscriptObserver = (node: Element): void => {
       transcriptObserver = new MutationObserver(transcriptMutationCallback)
       transcriptObserver.observe(node, mutationConfig)
       state.transcriptTargetBuffer = node
     }
 
-    const onVisibilityChange = () => {
+    const onVisibilityChange = (): void => {
       if (state.hasMeetingEnded || !state.hasMeetingStarted || document.hidden) return
       if (state.transcriptTargetBuffer && !state.transcriptTargetBuffer.isConnected && !isReattaching) {
         const captionEl = document.querySelector(captionContainerSelector)
@@ -99,21 +91,19 @@ export function meetingRoutines(uiType) {
     // REGISTER TRANSCRIPT LISTENER
     waitForElement(captionsIconData.selector, captionsIconData.text)
       .then(() => {
-        const captionsButton = selectElements(captionsIconData.selector, captionsIconData.text)[0]
-        chrome.storage.sync.get(["operationMode"], function (resultSyncUntyped) {
-          const resultSync = /** @type {ResultSync} */ (resultSyncUntyped)
+        const captionsButton = selectElements(captionsIconData.selector, captionsIconData.text)[0] as HTMLElement
+        chrome.storage.sync.get(["operationMode"], (resultSync: { operationMode?: string }) => {
           if (resultSync.operationMode === "manual") {
             console.log("Manual mode selected, leaving transcript off")
           } else {
-            captionsButton.click()
+            captionsButton?.click()
           }
         })
-        return waitForElement(`div[role="region"][tabindex="0"]`).then(targetNode => targetNode)
+        return waitForElement(`div[role="region"][tabindex="0"]`)
       })
       .then((targetNode) => {
-        const transcriptTargetNode = targetNode
-        if (transcriptTargetNode) {
-          attachTranscriptObserver(transcriptTargetNode)
+        if (targetNode) {
+          attachTranscriptObserver(targetNode)
 
           captionWatchdog = new MutationObserver(() => {
             if (state.hasMeetingEnded || isReattaching) return
@@ -129,8 +119,7 @@ export function meetingRoutines(uiType) {
           })
           captionWatchdog.observe(document.body, { childList: true, subtree: true })
 
-          chrome.storage.sync.get(["operationMode"], function (resultSyncUntyped) {
-            const resultSync = /** @type {ResultSync} */ (resultSyncUntyped)
+          chrome.storage.sync.get(["operationMode"], (resultSync: { operationMode?: string }) => {
             if (resultSync.operationMode === "manual") {
               showNotification({ status: 400, message: "<strong>meet-transcripts is not running</strong> <br /> Turn on captions using the CC icon, if needed" })
             } else {
@@ -151,17 +140,16 @@ export function meetingRoutines(uiType) {
     // REGISTER CHAT MESSAGES LISTENER
     waitForElement(".google-symbols", "chat")
       .then(() => {
-        const chatMessagesButton = selectElements(".google-symbols", "chat")[0]
-        chatMessagesButton.click()
+        const chatMessagesButton = selectElements(".google-symbols", "chat")[0] as HTMLElement
+        chatMessagesButton?.click()
         return waitForElement(`div[aria-live="polite"].Ge9Kpc`)
           .then(targetNode => ({ targetNode, chatMessagesButton }))
       })
       .then(({ targetNode, chatMessagesButton }) => {
-        chatMessagesButton.click()
-        const chatMessagesTargetNode = targetNode
-        if (chatMessagesTargetNode) {
+        (chatMessagesButton as HTMLElement)?.click()
+        if (targetNode) {
           chatMessagesObserver = new MutationObserver(chatMessagesMutationCallback)
-          chatMessagesObserver.observe(chatMessagesTargetNode, mutationConfig)
+          chatMessagesObserver.observe(targetNode, mutationConfig)
         } else {
           throw new Error("Chat messages element not found in DOM")
         }
@@ -175,14 +163,18 @@ export function meetingRoutines(uiType) {
 
     // MEETING END
     try {
-      selectElements(meetingEndIconData.selector, meetingEndIconData.text)[0].parentElement.parentElement.addEventListener("click", () => {
+      const endButton = selectElements(meetingEndIconData.selector, meetingEndIconData.text)[0]
+      const clickTarget = endButton?.parentElement?.parentElement
+      if (!clickTarget) throw new Error("Call end button element not found in DOM")
+
+      clickTarget.addEventListener("click", () => {
         state.hasMeetingEnded = true
-        if (transcriptObserver) transcriptObserver.disconnect()
-        if (chatMessagesObserver) chatMessagesObserver.disconnect()
-        if (captionWatchdog) captionWatchdog.disconnect()
+        transcriptObserver?.disconnect()
+        chatMessagesObserver?.disconnect()
+        captionWatchdog?.disconnect()
         document.removeEventListener("visibilitychange", onVisibilityChange)
 
-        if ((state.personNameBuffer !== "") && (state.transcriptTextBuffer !== "")) {
+        if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") {
           pushBufferToTranscript()
         }
         overWriteChromeStorage(["transcript", "chatMessages"], true)
