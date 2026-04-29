@@ -12,6 +12,14 @@ const timeFormat = {
     hour12: true
 }
 
+/**
+ * @param {"local"|"sync"} area
+ * @param {string[]} keys
+ */
+function chromeGet(area, keys) {
+    return new Promise(resolve => chrome.storage[area].get(keys, resolve))
+}
+
 const PLATFORM_CONFIGS = {
     "google_meet": {
         id: "content-google-meet",
@@ -425,109 +433,79 @@ function downloadTranscript(index, isWebhookEnabled) {
 
 /**
  * @param {number} index
- * @throws error code: 010, 011, 012
+ * @throws error code: 010, 011, 012, 016
  */
-function postTranscriptToWebhook(index) {
-    return new Promise((resolve, reject) => {
-        // Get webhook URL and meetings
-        chrome.storage.local.get(["meetings"], function (resultLocalUntyped) {
-            const resultLocal = /** @type {ResultLocal} */ (resultLocalUntyped)
-            chrome.storage.sync.get(["webhookUrl", "webhookBodyType"], function (resultSyncUntyped) {
-                const resultSync = /** @type {ResultSync} */ (resultSyncUntyped)
+async function postTranscriptToWebhook(index) {
+    const resultLocal = /** @type {ResultLocal} */ (await chromeGet("local", ["meetings"]))
+    const resultSync = /** @type {ResultSync} */ (await chromeGet("sync", ["webhookUrl", "webhookBodyType"]))
 
-                if (resultSync.webhookUrl) {
-                    if (resultLocal.meetings && resultLocal.meetings[index]) {
-                        const meeting = resultLocal.meetings[index]
+    if (!resultSync.webhookUrl) {
+        throw { errorCode: "012", errorMessage: "No webhook URL configured" }
+    }
+    if (!resultLocal.meetings || !resultLocal.meetings[index]) {
+        throw { errorCode: "010", errorMessage: "Meeting at specified index not found" }
+    }
 
-                        /** @type {WebhookBody} */
-                        let webhookData
-                        if (resultSync.webhookBodyType === "advanced") {
-                            webhookData = {
-                                webhookBodyType: "advanced",
-                                meetingSoftware: meeting.meetingSoftware ? meeting.meetingSoftware : "",
-                                meetingTitle: meeting.meetingTitle || meeting.title || "",
-                                meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toISOString(),
-                                meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toISOString(),
-                                transcript: meeting.transcript,
-                                chatMessages: meeting.chatMessages
-                            }
-                        }
-                        else {
-                            webhookData = {
-                                webhookBodyType: "simple",
-                                meetingSoftware: meeting.meetingSoftware ? meeting.meetingSoftware : "",
-                                meetingTitle: meeting.meetingTitle || meeting.title || "",
-                                meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
-                                meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
-                                transcript: getTranscriptString(meeting.transcript),
-                                chatMessages: getChatMessagesString(meeting.chatMessages)
-                            }
-                        }
+    // Verify host permission exists — URL may have synced from another device.
+    const urlObj = new URL(resultSync.webhookUrl)
+    const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`
+    const hasPermission = await new Promise(res =>
+        chrome.permissions.contains({ origins: [originPattern] }, res)
+    )
+    if (!hasPermission) {
+        throw { errorCode: "016", errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission." }
+    }
 
-                        // Verify host permission exists before fetching — the URL may have
-                        // synced from another device where permission was originally granted.
-                        const urlObj = new URL(resultSync.webhookUrl)
-                        const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`
-                        const hasPermission = await new Promise(res =>
-                            chrome.permissions.contains({ origins: [originPattern] }, res)
-                        )
-                        if (!hasPermission) {
-                            reject({ errorCode: "016", errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission." })
-                            return
-                        }
+    const meeting = resultLocal.meetings[index]
+    /** @type {WebhookBody} */
+    const webhookData = resultSync.webhookBodyType === "advanced"
+        ? {
+            webhookBodyType: "advanced",
+            meetingSoftware: meeting.meetingSoftware || "",
+            meetingTitle: meeting.meetingTitle || meeting.title || "",
+            meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toISOString(),
+            meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toISOString(),
+            transcript: meeting.transcript,
+            chatMessages: meeting.chatMessages
+        }
+        : {
+            webhookBodyType: "simple",
+            meetingSoftware: meeting.meetingSoftware || "",
+            meetingTitle: meeting.meetingTitle || meeting.title || "",
+            meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+            meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+            transcript: getTranscriptString(meeting.transcript),
+            chatMessages: getChatMessagesString(meeting.chatMessages)
+        }
 
-                        // Post to webhook
-                        fetch(resultSync.webhookUrl, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify(webhookData)
-                        }).then(response => {
-                            if (!response.ok) {
-                                throw new Error(`Webhook request failed with HTTP status code ${response.status} ${response.statusText}`)
-                            }
-                        }).then(() => {
-                            // Update success status.
-                            // @ts-ignore - Pointless type error about resultLocal.meetings being undefined, which is already checked above.
-                            resultLocal.meetings[index].webhookPostStatus = "successful"
-                            chrome.storage.local.set({ meetings: resultLocal.meetings }, function () {
-                                resolve("Webhook posted successfully")
-                            })
-                        }).catch(error => {
-                            console.error(error)
-                            // Update failure status.
-                            // @ts-ignore - Pointless type error about resultLocal.meetings being undefined, which is already checked above.
-                            resultLocal.meetings[index].webhookPostStatus = "failed"
-                            chrome.storage.local.set({ meetings: resultLocal.meetings }, function () {
-                                // Create notification and open webhooks page
-                                chrome.notifications.create({
-                                    type: "basic",
-                                    iconUrl: "icon.png",
-                                    title: "Could not post webhook!",
-                                    message: `${error.message || "Unknown error"}. Click to view and retry.`
-                                }, function (notificationId) {
-                                    // Handle notification click
-                                    chrome.notifications.onClicked.addListener(function (clickedNotificationId) {
-                                        if (clickedNotificationId === notificationId) {
-                                            chrome.tabs.create({ url: "meetings.html" })
-                                        }
-                                    })
-                                })
-                                reject({ errorCode: "011", errorMessage: error })
-                            })
-                        })
-                    }
-                    else {
-                        reject({ errorCode: "010", errorMessage: "Meeting at specified index not found" })
-                    }
-                }
-                else {
-                    reject({ errorCode: "012", errorMessage: "No webhook URL configured" })
+    const response = await fetch(resultSync.webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(webhookData)
+    }).catch(error => { throw { errorCode: "011", errorMessage: error } })
+
+    if (!response.ok) {
+        // Update failure status and notify
+        resultLocal.meetings[index].webhookPostStatus = "failed"
+        await new Promise(res => chrome.storage.local.set({ meetings: resultLocal.meetings }, res))
+        chrome.notifications.create({
+            type: "basic",
+            iconUrl: "icon.png",
+            title: "Could not post webhook!",
+            message: `HTTP ${response.status} ${response.statusText}. Click to view and retry.`
+        }, function (notificationId) {
+            chrome.notifications.onClicked.addListener(function (clickedNotificationId) {
+                if (clickedNotificationId === notificationId) {
+                    chrome.tabs.create({ url: "meetings.html" })
                 }
             })
         })
-    })
+        throw { errorCode: "011", errorMessage: `HTTP ${response.status} ${response.statusText}` }
+    }
+
+    resultLocal.meetings[index].webhookPostStatus = "successful"
+    await new Promise(res => chrome.storage.local.set({ meetings: resultLocal.meetings }, res))
+    return "Webhook posted successfully"
 }
 
 
