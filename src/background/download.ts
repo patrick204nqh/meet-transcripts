@@ -11,7 +11,7 @@ const timeFormat: Intl.DateTimeFormatOptions = {
   hour12: true,
 }
 
-export async function downloadTranscript(index: number, _isWebhookEnabled: boolean): Promise<void> {
+export async function downloadTranscript(index: number): Promise<void> {
   const meetings = await StorageLocal.getMeetings()
 
   if (!meetings[index]) {

@@ -5,7 +5,7 @@ import { downloadTranscript } from '../background/download'
 import { getTranscriptString, getChatMessagesString } from '../shared/formatters'
 
 export const DownloadService = {
-  downloadTranscript: async (index: number): Promise<void> => downloadTranscript(index, false),
+  downloadTranscript: async (index: number): Promise<void> => downloadTranscript(index),
 
   formatTranscript: (meeting: Meeting): string => getTranscriptString(meeting.transcript),
 

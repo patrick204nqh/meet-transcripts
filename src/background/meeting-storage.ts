@@ -41,7 +41,7 @@ export async function finalizeMeeting(): Promise<string> {
   const promises: Promise<unknown>[] = []
 
   if (sync.autoDownloadFileAfterMeeting) {
-    promises.push(downloadTranscript(lastIndex, !!(sync.webhookUrl && sync.autoPostWebhookAfterMeeting)))
+    promises.push(downloadTranscript(lastIndex))
   }
   if (sync.autoPostWebhookAfterMeeting && sync.webhookUrl) {
     promises.push(postTranscriptToWebhook(lastIndex))
