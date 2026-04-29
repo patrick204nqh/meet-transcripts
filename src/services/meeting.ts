@@ -1,8 +1,8 @@
 import type { Meeting } from '../types'
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
-import { downloadTranscript } from './download'
-import { postTranscriptToWebhook } from './webhook'
+import { DownloadService } from './download'
+import { WebhookService } from './webhook'
 
 export async function pickupLastMeeting(): Promise<string> {
   const data = await StorageLocal.getCurrentMeetingData()
@@ -40,10 +40,10 @@ export async function finalizeMeeting(): Promise<string> {
   const promises: Promise<unknown>[] = []
 
   if (sync.autoDownloadFileAfterMeeting) {
-    promises.push(downloadTranscript(lastIndex))
+    promises.push(DownloadService.downloadTranscript(lastIndex))
   }
   if (sync.autoPostWebhookAfterMeeting && sync.webhookUrl) {
-    promises.push(postTranscriptToWebhook(lastIndex))
+    promises.push(WebhookService.postWebhook(lastIndex))
   }
 
   await Promise.all(promises)
@@ -66,4 +66,10 @@ export async function recoverLastMeeting(): Promise<string> {
     return "Recovered last meeting to the best possible extent"
   }
   return "No recovery needed"
+}
+
+export const MeetingService = {
+  finalizeMeeting,
+  recoverMeeting: recoverLastMeeting,
+  pickupLastMeeting,
 }

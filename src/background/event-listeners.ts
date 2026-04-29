@@ -1,5 +1,5 @@
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
-import { MeetingService } from '../services/meeting-service'
+import { MeetingService } from '../services/meeting'
 import { clearTabIdAndApplyUpdate } from './lifecycle'
 import { reRegisterContentScript } from './content-script'
 

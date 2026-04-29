@@ -8,10 +8,11 @@
 		NO_MEETINGS: "013",
 		EMPTY_TRANSCRIPT: "014",
 		INVALID_INDEX: "015",
-		NO_HOST_PERMISSION: "016"
+		NO_HOST_PERMISSION: "016",
+		POPUP_OPEN_FAILED: "017"
 	};
 	//#endregion
-	//#region src/state.ts
+	//#region src/content/state.ts
 	var state = {
 		userName: "You",
 		transcript: [],
@@ -29,7 +30,7 @@
 		extensionStatusJSON: null
 	};
 	//#endregion
-	//#region src/ui.ts
+	//#region src/content/ui.ts
 	var commonCSS = `background: rgb(255 255 255 / 100%);
     backdrop-filter: blur(16px);
     position: fixed;
@@ -111,7 +112,7 @@
 		console.error(`[meet-transcripts] Error ${code}:`, err);
 	}
 	//#endregion
-	//#region src/constants.ts
+	//#region src/content/constants.ts
 	var bugStatusJson = {
 		status: 400,
 		message: `<strong>meet-transcripts encountered a new error</strong> <br /> Please report it <a href="https://github.com/patrick204nqh/meet-transcripts/issues" target="_blank">here</a>.`
@@ -137,8 +138,14 @@
 			});
 		});
 	}
+	function recoverLastMeeting() {
+		return sendMessage({ type: "recover_last_meeting" }).then((response) => {
+			if (response.success) return response.data ?? "Last meeting recovered successfully or recovery not needed";
+			return Promise.reject(response.error);
+		});
+	}
 	//#endregion
-	//#region src/state-sync.ts
+	//#region src/content/state-sync.ts
 	function persistStateFields(keys, sendEndMessage) {
 		const objectToSave = {};
 		if (keys.includes("software")) objectToSave.software = meetingSoftware;
@@ -149,21 +156,14 @@
 		chrome.storage.local.set(objectToSave, () => {
 			pulseStatus();
 			if (sendEndMessage) sendMessage({ type: "meeting_ended" }).then((response) => {
-				if (!response.success && typeof response.message === "object") {
-					const err = response.message;
-					if (err.errorCode === "010") console.error(err.errorMessage);
+				if (!response.success) {
+					if (response.error.errorCode === ErrorCode.MEETING_NOT_FOUND) console.error(response.error.errorMessage);
 				}
 			});
 		});
 	}
-	function recoverLastMeeting() {
-		return sendMessage({ type: "recover_last_meeting" }).then((response) => {
-			if (response.success) return "Last meeting recovered successfully or recovery not needed";
-			return Promise.reject(response.message);
-		});
-	}
 	//#endregion
-	//#region src/observer/transcript-observer.ts
+	//#region src/content/observer/transcript-observer.ts
 	function insertGapMarker() {
 		state.transcript.push({
 			personName: "[meet-transcripts]",
@@ -230,7 +230,7 @@
 		});
 	}
 	//#endregion
-	//#region src/observer/chat-observer.ts
+	//#region src/content/observer/chat-observer.ts
 	function pushUniqueChatBlock(chatBlock) {
 		if (!state.chatMessages.some((item) => item.personName === chatBlock.personName && item.text === chatBlock.text)) {
 			console.log("Chat message captured");
@@ -263,7 +263,7 @@
 		}
 	}
 	//#endregion
-	//#region src/meeting.ts
+	//#region src/content/meeting-session.ts
 	function checkExtensionStatus() {
 		return new Promise((resolve) => {
 			state.extensionStatusJSON = {
@@ -421,7 +421,7 @@
 		});
 	}
 	//#endregion
-	//#region src/content-google-meet.ts
+	//#region src/content/google-meet.ts
 	Promise.race([recoverLastMeeting(), new Promise((_, reject) => setTimeout(() => reject({
 		errorCode: ErrorCode.NO_HOST_PERMISSION,
 		errorMessage: "Recovery timed out"

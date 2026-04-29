@@ -1,7 +1,7 @@
-import type { Meeting, WebhookBody } from '../types'
+import type { Meeting } from '../types'
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
-import { getTranscriptString, getChatMessagesString, timeFormat } from '../shared/formatters'
+import { buildWebhookBody } from '../shared/formatters'
 
 const notificationClickTargets = new Set<string>()
 
@@ -28,25 +28,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
 
   const meeting: Meeting = meetings[index]
   const bodyType = webhookBodyType === "advanced" ? "advanced" : "simple"
-  const webhookData: WebhookBody = bodyType === "advanced"
-    ? {
-        webhookBodyType: "advanced",
-        software: meeting.software || "",
-        title: meeting.title || "",
-        startTimestamp: new Date(meeting.startTimestamp).toISOString(),
-        endTimestamp: new Date(meeting.endTimestamp).toISOString(),
-        transcript: meeting.transcript,
-        chatMessages: meeting.chatMessages,
-      }
-    : {
-        webhookBodyType: "simple",
-        software: meeting.software || "",
-        title: meeting.title || "",
-        startTimestamp: new Date(meeting.startTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
-        endTimestamp: new Date(meeting.endTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
-        transcript: getTranscriptString(meeting.transcript),
-        chatMessages: getChatMessagesString(meeting.chatMessages),
-      }
+  const webhookData = buildWebhookBody(meeting, bodyType)
 
   const response = await fetch(webhookUrl, {
     method: "POST",

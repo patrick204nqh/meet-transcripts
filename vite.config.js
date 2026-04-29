@@ -8,7 +8,7 @@ function backgroundBuild() {
         configFile: false,
         build: {
           lib: {
-            entry: 'src/background/index.ts',
+            entry: 'src/background/message-handler.ts',
             formats: ['iife'],
             name: 'Background',
           },
@@ -30,7 +30,7 @@ export default defineConfig({
   plugins: [backgroundBuild()],
   build: {
     lib: {
-      entry: 'src/content/content-google-meet.ts',
+      entry: 'src/content/google-meet.ts',
       formats: ['iife'],
       name: 'MeetTranscripts',
     },
@@ -39,7 +39,7 @@ export default defineConfig({
     minify: false,
     rollupOptions: {
       output: {
-        entryFileNames: 'content-google-meet.js',
+        entryFileNames: 'google-meet.js',
       },
     },
   },

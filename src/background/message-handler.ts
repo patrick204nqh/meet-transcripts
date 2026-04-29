@@ -1,9 +1,9 @@
 import type { ExtensionMessage, ExtensionResponse, ErrorObject } from '../types'
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal } from '../shared/storage-repo'
-import { MeetingService } from '../services/meeting-service'
-import { DownloadService } from '../services/download-service'
-import { WebhookService } from '../services/webhook-service'
+import { MeetingService } from '../services/meeting'
+import { DownloadService } from '../services/download'
+import { WebhookService } from '../services/webhook'
 import { clearTabIdAndApplyUpdate } from './lifecycle'
 import './event-listeners'
 

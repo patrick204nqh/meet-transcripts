@@ -8,7 +8,8 @@
 		NO_MEETINGS: "013",
 		EMPTY_TRANSCRIPT: "014",
 		INVALID_INDEX: "015",
-		NO_HOST_PERMISSION: "016"
+		NO_HOST_PERMISSION: "016",
+		POPUP_OPEN_FAILED: "017"
 	};
 	//#endregion
 	//#region src/shared/storage-repo.ts
@@ -67,9 +68,9 @@
 		},
 		setCurrentMeetingData: (data) => chrome.storage.local.set(data),
 		getDeferredUpdatePending: async () => {
-			return !!(await chrome.storage.local.get(["isDeferredUpdateAvailable"])).isDeferredUpdateAvailable;
+			return !!(await chrome.storage.local.get(["deferredUpdatePending"])).deferredUpdatePending;
 		},
-		setDeferredUpdate: (value) => chrome.storage.local.set({ isDeferredUpdateAvailable: value })
+		setDeferredUpdatePending: (value) => chrome.storage.local.set({ deferredUpdatePending: value })
 	};
 	var StorageSync = {
 		getSettings: async () => {
@@ -94,8 +95,8 @@
 		}
 	};
 	//#endregion
-	//#region src/background/download.ts
-	var timeFormat$1 = {
+	//#region src/shared/formatters.ts
+	var timeFormat = {
 		year: "numeric",
 		month: "2-digit",
 		day: "2-digit",
@@ -105,24 +106,47 @@
 	};
 	function getTranscriptString(transcript) {
 		if (transcript.length === 0) return "";
-		return transcript.map((block) => `${block.personName} (${new Date(block.timestamp).toLocaleString("default", timeFormat$1).toUpperCase()})\n${block.text}\n\n`).join("");
+		return transcript.map((block) => `${block.personName} (${new Date(block.timestamp).toLocaleString("default", timeFormat).toUpperCase()})\n${block.text}\n\n`).join("");
 	}
 	function getChatMessagesString(chatMessages) {
 		if (chatMessages.length === 0) return "";
-		return chatMessages.map((msg) => `${msg.personName} (${new Date(msg.timestamp).toLocaleString("default", timeFormat$1).toUpperCase()})\n${msg.text}\n\n`).join("");
+		return chatMessages.map((msg) => `${msg.personName} (${new Date(msg.timestamp).toLocaleString("default", timeFormat).toUpperCase()})\n${msg.text}\n\n`).join("");
 	}
-	async function downloadTranscript(index, _isWebhookEnabled) {
+	function buildTranscriptFilename(meeting) {
+		const sanitisedTitle = meeting.title ? meeting.title.replaceAll(/[:?"*<>|~/\\\u{1}-\u{1f}\u{7f}\u{80}-\u{9f}\p{Cf}\p{Cn}]|^[.\u{0}\p{Zl}\p{Zp}\p{Zs}]|[.\u{0}\p{Zl}\p{Zp}\p{Zs}]$|^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?=\.|$)/giu, "_") : "Meeting";
+		const formattedTimestamp = new Date(meeting.startTimestamp).toLocaleString("default", timeFormat).replace(/[/:]/g, "-");
+		return `meet-transcripts/${meeting.software ? `${meeting.software} transcript` : "Transcript"}-${sanitisedTitle} at ${formattedTimestamp} on.txt`;
+	}
+	function buildWebhookBody(meeting, bodyType) {
+		if (bodyType === "advanced") return {
+			webhookBodyType: "advanced",
+			software: meeting.software || "",
+			title: meeting.title || "",
+			startTimestamp: new Date(meeting.startTimestamp).toISOString(),
+			endTimestamp: new Date(meeting.endTimestamp).toISOString(),
+			transcript: meeting.transcript,
+			chatMessages: meeting.chatMessages
+		};
+		return {
+			webhookBodyType: "simple",
+			software: meeting.software || "",
+			title: meeting.title || "",
+			startTimestamp: new Date(meeting.startTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+			endTimestamp: new Date(meeting.endTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
+			transcript: getTranscriptString(meeting.transcript),
+			chatMessages: getChatMessagesString(meeting.chatMessages)
+		};
+	}
+	//#endregion
+	//#region src/background/download.ts
+	async function downloadTranscript(index) {
 		const meetings = await StorageLocal.getMeetings();
 		if (!meetings[index]) throw {
 			errorCode: ErrorCode.MEETING_NOT_FOUND,
 			errorMessage: "Meeting at specified index not found"
 		};
 		const meeting = meetings[index];
-		const invalidFilenameRegex = /[:?"*<>|~/\\\u{1}-\u{1f}\u{7f}\u{80}-\u{9f}\p{Cf}\p{Cn}]|^[.\u{0}\p{Zl}\p{Zp}\p{Zs}]|[.\u{0}\p{Zl}\p{Zp}\p{Zs}]$|^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?=\.|$)/giu;
-		let sanitisedTitle = "Meeting";
-		if (meeting.title) sanitisedTitle = meeting.title.replaceAll(invalidFilenameRegex, "_");
-		const formattedTimestamp = new Date(meeting.startTimestamp).toLocaleString("default", timeFormat$1).replace(/[/:]/g, "-");
-		const fileName = `meet-transcripts/${meeting.software ? `${meeting.software} transcript` : "Transcript"}-${sanitisedTitle} at ${formattedTimestamp} on.txt`;
+		const fileName = buildTranscriptFilename(meeting);
 		let content = getTranscriptString(meeting.transcript);
 		content += `\n\n---------------\nCHAT MESSAGES\n---------------\n\n`;
 		content += getChatMessagesString(meeting.chatMessages);
@@ -158,15 +182,22 @@
 		});
 	}
 	//#endregion
-	//#region src/background/webhook.ts
-	var timeFormat = {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		hour12: true
+	//#region src/services/download.ts
+	var DownloadService = {
+		downloadTranscript: async (index) => downloadTranscript(index),
+		formatTranscript: (meeting) => getTranscriptString(meeting.transcript),
+		formatChatMessages: (meeting) => getChatMessagesString(meeting.chatMessages),
+		getMeeting: async (index) => {
+			const meeting = (await StorageLocal.getMeetings())[index];
+			if (!meeting) throw {
+				errorCode: ErrorCode.MEETING_NOT_FOUND,
+				errorMessage: "Meeting at specified index not found"
+			};
+			return meeting;
+		}
 	};
+	//#endregion
+	//#region src/background/webhook.ts
 	var notificationClickTargets = /* @__PURE__ */ new Set();
 	chrome.notifications.onClicked.addListener((notificationId) => {
 		if (notificationClickTargets.has(notificationId)) {
@@ -191,23 +222,7 @@
 			errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission."
 		};
 		const meeting = meetings[index];
-		const webhookData = (webhookBodyType === "advanced" ? "advanced" : "simple") === "advanced" ? {
-			webhookBodyType: "advanced",
-			software: meeting.software || "",
-			title: meeting.title || "",
-			startTimestamp: new Date(meeting.startTimestamp).toISOString(),
-			endTimestamp: new Date(meeting.endTimestamp).toISOString(),
-			transcript: meeting.transcript,
-			chatMessages: meeting.chatMessages
-		} : {
-			webhookBodyType: "simple",
-			software: meeting.software || "",
-			title: meeting.title || "",
-			startTimestamp: new Date(meeting.startTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
-			endTimestamp: new Date(meeting.endTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
-			transcript: getTranscriptString(meeting.transcript),
-			chatMessages: getChatMessagesString(meeting.chatMessages)
-		};
+		const webhookData = buildWebhookBody(meeting, webhookBodyType === "advanced" ? "advanced" : "simple");
 		const response = await fetch(webhookUrl, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -219,8 +234,11 @@
 			};
 		});
 		if (!response.ok) {
-			meetings[index].webhookPostStatus = "failed";
-			await StorageLocal.setMeetings(meetings);
+			const withFailed = meetings.map((m, i) => i === index ? {
+				...m,
+				webhookPostStatus: "failed"
+			} : m);
+			await StorageLocal.setMeetings(withFailed);
 			chrome.notifications.create({
 				type: "basic",
 				iconUrl: "icon.png",
@@ -234,12 +252,18 @@
 				errorMessage: `HTTP ${response.status} ${response.statusText}`
 			};
 		}
-		meetings[index].webhookPostStatus = "successful";
-		await StorageLocal.setMeetings(meetings);
+		const withSuccess = meetings.map((m, i) => i === index ? {
+			...m,
+			webhookPostStatus: "successful"
+		} : m);
+		await StorageLocal.setMeetings(withSuccess);
 		return "Webhook posted successfully";
 	}
 	//#endregion
-	//#region src/background/meeting-storage.ts
+	//#region src/services/webhook.ts
+	var WebhookService = { postWebhook: (index) => postTranscriptToWebhook(index) };
+	//#endregion
+	//#region src/services/meeting.ts
 	async function pickupLastMeeting() {
 		const data = await StorageLocal.getCurrentMeetingData();
 		if (!data.startTimestamp) throw {
@@ -251,7 +275,7 @@
 			errorMessage: "Empty transcript and empty chatMessages"
 		};
 		const newEntry = {
-			software: data.software ?? "",
+			software: data.software,
 			title: data.title,
 			startTimestamp: data.startTimestamp,
 			endTimestamp: (/* @__PURE__ */ new Date()).toISOString(),
@@ -259,10 +283,8 @@
 			chatMessages: data.chatMessages ?? [],
 			webhookPostStatus: "new"
 		};
-		let meetings = await StorageLocal.getMeetings();
-		meetings.push(newEntry);
-		if (meetings.length > 10) meetings = meetings.slice(-10);
-		await StorageLocal.setMeetings(meetings);
+		const updated = [...await StorageLocal.getMeetings(), newEntry].slice(-10);
+		await StorageLocal.setMeetings(updated);
 		console.log("Last meeting picked up");
 		return "Last meeting picked up";
 	}
@@ -272,8 +294,8 @@
 		const sync = await StorageSync.getAutoActionSettings();
 		const lastIndex = meetings.length - 1;
 		const promises = [];
-		if (sync.autoDownloadFileAfterMeeting) promises.push(downloadTranscript(lastIndex, !!(sync.webhookUrl && sync.autoPostWebhookAfterMeeting)));
-		if (sync.autoPostWebhookAfterMeeting && sync.webhookUrl) promises.push(postTranscriptToWebhook(lastIndex));
+		if (sync.autoDownloadFileAfterMeeting) promises.push(DownloadService.downloadTranscript(lastIndex));
+		if (sync.autoPostWebhookAfterMeeting && sync.webhookUrl) promises.push(WebhookService.postWebhook(lastIndex));
 		await Promise.all(promises);
 		return "Meeting processing complete";
 	}
@@ -290,31 +312,11 @@
 		}
 		return "No recovery needed";
 	}
-	//#endregion
-	//#region src/services/meeting-service.ts
 	var MeetingService = {
-		finalizeMeeting: () => finalizeMeeting(),
-		recoverMeeting: () => recoverLastMeeting(),
-		pickupLastMeeting: () => pickupLastMeeting()
+		finalizeMeeting,
+		recoverMeeting: recoverLastMeeting,
+		pickupLastMeeting
 	};
-	//#endregion
-	//#region src/services/download-service.ts
-	var DownloadService = {
-		downloadTranscript: async (index) => downloadTranscript(index, false),
-		formatTranscript: (meeting) => getTranscriptString(meeting.transcript),
-		formatChatMessages: (meeting) => getChatMessagesString(meeting.chatMessages),
-		getMeeting: async (index) => {
-			const meeting = (await StorageLocal.getMeetings())[index];
-			if (!meeting) throw {
-				errorCode: ErrorCode.MEETING_NOT_FOUND,
-				errorMessage: "Meeting at specified index not found"
-			};
-			return meeting;
-		}
-	};
-	//#endregion
-	//#region src/services/webhook-service.ts
-	var WebhookService = { postWebhook: (index) => postTranscriptToWebhook(index) };
 	//#endregion
 	//#region src/background/lifecycle.ts
 	async function clearTabIdAndApplyUpdate() {
@@ -323,15 +325,15 @@
 		console.log("Meeting tab id cleared for next meeting");
 		if (await StorageLocal.getDeferredUpdatePending()) {
 			console.log("Applying deferred update");
-			await StorageLocal.setDeferredUpdate(false);
+			await StorageLocal.setDeferredUpdatePending(false);
 			chrome.runtime.reload();
 		}
 	}
 	//#endregion
-	//#region src/background/content-scripts.ts
+	//#region src/background/content-script.ts
 	var PLATFORM_CONFIGS = { google_meet: {
-		id: "content-google-meet",
-		js: ["content-google-meet.js"],
+		id: "google-meet",
+		js: ["google-meet.js"],
 		matches: ["https://meet.google.com/*"],
 		excludeMatches: ["https://meet.google.com/", "https://meet.google.com/landing"]
 	} };
@@ -391,7 +393,7 @@
 	});
 	chrome.runtime.onUpdateAvailable.addListener(() => {
 		StorageLocal.getMeetingTabId().then((id) => {
-			if (id) StorageLocal.setDeferredUpdate(true).then(() => console.log("Deferred update flag set"));
+			if (id) StorageLocal.setDeferredUpdatePending(true).then(() => console.log("Deferred update flag set"));
 			else {
 				console.log("No active meeting, applying update immediately");
 				chrome.runtime.reload();
@@ -413,15 +415,15 @@
 		});
 	});
 	//#endregion
-	//#region src/background/index.ts
+	//#region src/background/message-handler.ts
 	var ok = { success: true };
 	var err = (e) => ({
 		success: false,
-		message: e
+		error: e
 	});
 	var invalidIndex = {
 		success: false,
-		message: {
+		error: {
 			errorCode: ErrorCode.INVALID_INDEX,
 			errorMessage: "Invalid index"
 		}
@@ -450,14 +452,17 @@
 		}) : sendResponse(invalidIndex);
 		if (msg.type === "recover_last_meeting") MeetingService.recoverMeeting().then((m) => sendResponse({
 			success: true,
-			message: m
+			data: m
 		})).catch((e) => sendResponse(err(e)));
 		if (msg.type === "open_popup") chrome.action.openPopup().then((m) => sendResponse({
 			success: true,
-			message: String(m)
+			data: String(m)
 		})).catch((e) => sendResponse({
 			success: false,
-			message: String(e)
+			error: {
+				errorCode: ErrorCode.POPUP_OPEN_FAILED,
+				errorMessage: String(e)
+			}
 		}));
 		return true;
 	});
