@@ -148,4 +148,44 @@ test.describe('Meetings page', () => {
     await expect(page.locator('.status-failed').first()).toBeVisible();
     await expect(page.locator('.status-new').first()).toBeVisible();
   });
+
+  test('renders meeting title as plain text, not HTML', async ({ page, extensionId }) => {
+    const xssPayload = '<img src=x onerror=window.__xss=1>';
+    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+    await seedMeetings(page, [{
+      ...MOCK_MEETINGS[0],
+      meetingTitle: xssPayload,
+    }]);
+    // Title must appear as literal text, not trigger the onerror handler
+    await expect(page.locator('.meeting-title').first()).toHaveText(xssPayload);
+    const xssTriggered = await page.evaluate(() => window.__xss);
+    expect(xssTriggered).toBeUndefined();
+  });
+
+  test('delete button removes the meeting row after confirmation', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+    await seedMeetings(page, MOCK_MEETINGS);
+    await expect(page.locator('#meetings-table tr')).toHaveCount(MOCK_MEETINGS.length);
+
+    page.once('dialog', dialog => dialog.accept());
+    await page.locator('.delete-button').first().click();
+    await expect(page.locator('#meetings-table tr')).toHaveCount(MOCK_MEETINGS.length - 1);
+  });
+
+  test('download button sends download_transcript_at_index message', async ({ page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+    await seedMeetings(page, MOCK_MEETINGS);
+
+    const sentMessages = await page.evaluate(() => {
+      const msgs = [];
+      const original = chrome.runtime.sendMessage.bind(chrome.runtime);
+      chrome.runtime.sendMessage = (msg, cb) => { msgs.push(msg); if (cb) cb({ success: true }); };
+      window.__sentMessages = msgs;
+      return msgs;
+    });
+
+    await page.locator('.download-button').first().click();
+    const messages = await page.evaluate(() => window.__sentMessages);
+    expect(messages.some(m => m.type === 'download_transcript_at_index')).toBe(true);
+  });
 });
