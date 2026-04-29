@@ -1,3 +1,5 @@
+declare const __DEV__: boolean
+
 export interface TranscriptBlock {
   personName: string
   timestamp: string

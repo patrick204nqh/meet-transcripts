@@ -1,4 +1,5 @@
 import type { ExtensionStatusJSON } from '../types'
+import { bugStatusJson } from './constants'
 
 const commonCSS = `background: rgb(255 255 255 / 100%);
     backdrop-filter: blur(16px);
@@ -21,6 +22,9 @@ const commonCSS = `background: rgb(255 255 255 / 100%);
     font-family: "Google Sans",Roboto,Arial,sans-serif;
     box-shadow: rgba(0, 0, 0, 0.16) 0px 10px 36px 0px, rgba(0, 0, 0, 0.06) 0px 0px 0px 1px;`
 
+const DOM_POLL_INTERVAL_MS = 250
+const DOM_POLL_MAX_ATTEMPTS = 120  // 30 s ceiling before giving up
+
 export function selectElements(selector: string, text: string | RegExp): Element[] {
   const elements = document.querySelectorAll(selector)
   return Array.prototype.filter.call(elements, (element: Element) =>
@@ -28,17 +32,43 @@ export function selectElements(selector: string, text: string | RegExp): Element
   )
 }
 
-export async function waitForElement(selector: string, text?: string | RegExp): Promise<Element | null> {
-  if (text) {
-    while (!Array.from(document.querySelectorAll(selector)).find(el => el.textContent === text)) {
-      await new Promise((resolve) => requestAnimationFrame(resolve))
+export function waitForElement(selector: string, text?: string | RegExp): Promise<Element | null> {
+  return new Promise((resolve) => {
+    const matches = (el: Element): boolean =>
+      !text || RegExp(text).test(el.textContent ?? "")
+
+    const find = (): Element | null =>
+      Array.from(document.querySelectorAll(selector)).find(matches) ?? null
+
+    // 1. Immediate check — element may already be in DOM
+    const immediate = find()
+    if (immediate) { resolve(immediate); return }
+
+    let attempts = 0
+    let done = false
+
+    const finish = (el: Element | null): void => {
+      if (done) return
+      done = true
+      observer.disconnect()
+      clearInterval(timer)
+      resolve(el)
     }
-  } else {
-    while (!document.querySelector(selector)) {
-      await new Promise((resolve) => requestAnimationFrame(resolve))
-    }
-  }
-  return document.querySelector(selector)
+
+    // 2. MutationObserver fires regardless of tab visibility (unlike requestAnimationFrame)
+    const observer = new MutationObserver(() => {
+      const el = find()
+      if (el) finish(el)
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+
+    // 3. Timeout guard — gives up after DOM_POLL_MAX_ATTEMPTS × DOM_POLL_INTERVAL_MS
+    const timer = setInterval(() => {
+      const el = find()
+      if (el) { finish(el); return }
+      if (++attempts >= DOM_POLL_MAX_ATTEMPTS) finish(null)
+    }, DOM_POLL_INTERVAL_MS)
+  })
 }
 
 export function showNotification(statusJSON: ExtensionStatusJSON | null): void {
@@ -97,4 +127,9 @@ export function pulseStatus(): void {
 
 export function logError(code: string, err: unknown): void {
   console.error(`[meet-transcripts] Error ${code}:`, err)
+}
+
+export function handleContentError(code: string, err: unknown, notify = true): void {
+  logError(code, err)
+  if (notify) showNotification(bugStatusJson)
 }

@@ -6,6 +6,9 @@ function backgroundBuild() {
     closeBundle: async () => {
       await build({
         configFile: false,
+        define: {
+          __DEV__: process.env.NODE_ENV !== 'production',
+        },
         build: {
           lib: {
             entry: 'src/background/message-handler.ts',
@@ -28,6 +31,9 @@ function backgroundBuild() {
 
 export default defineConfig({
   plugins: [backgroundBuild()],
+  define: {
+    __DEV__: process.env.NODE_ENV !== 'production',
+  },
   build: {
     lib: {
       entry: 'src/content/google-meet.ts',
