@@ -256,6 +256,31 @@
 		return "No recovery needed";
 	}
 	//#endregion
+	//#region src/services/meeting-service.ts
+	var MeetingService = {
+		finalizeMeeting: () => processLastMeeting(),
+		recoverMeeting: () => recoverLastMeeting(),
+		pickupFromStorage: () => pickupLastMeetingFromStorage()
+	};
+	//#endregion
+	//#region src/services/download-service.ts
+	var DownloadService = {
+		download: async (index) => downloadTranscript(index, false),
+		formatTranscript: (meeting) => getTranscriptString(meeting.transcript),
+		formatChatMessages: (meeting) => getChatMessagesString(meeting.chatMessages),
+		getMeeting: async (index) => {
+			const meeting = (await StorageLocal.getMeetings())[index];
+			if (!meeting) throw {
+				errorCode: ErrorCode.MEETING_NOT_FOUND,
+				errorMessage: "Meeting at specified index not found"
+			};
+			return meeting;
+		}
+	};
+	//#endregion
+	//#region src/services/webhook-service.ts
+	var WebhookService = { post: (index) => postTranscriptToWebhook(index) };
+	//#endregion
 	//#region src/background/lifecycle.ts
 	async function clearTabIdAndApplyUpdate() {
 		chrome.action.setBadgeText({ text: "" });
@@ -320,82 +345,18 @@
 		});
 	}
 	//#endregion
-	//#region src/background/index.ts
-	chrome.runtime.onMessage.addListener((messageUntyped, sender, sendResponse) => {
-		if (sender.id !== chrome.runtime.id) return;
-		const message = messageUntyped;
-		console.log(message.type);
-		if (message.type === "new_meeting_started") {
-			chrome.tabs.query({
-				active: true,
-				currentWindow: true
-			}, (tabs) => {
-				const tabId = tabs[0]?.id;
-				if (tabId !== void 0) StorageLocal.setMeetingTabId(tabId).then(() => console.log("Meeting tab id saved"));
-			});
-			chrome.action.setBadgeText({ text: "REC" });
-			chrome.action.setBadgeBackgroundColor({ color: "#c0392b" });
-		}
-		if (message.type === "meeting_ended") StorageLocal.setMeetingTabId("processing").then(() => {
-			processLastMeeting().then(() => sendResponse({ success: true })).catch((error) => sendResponse({
-				success: false,
-				message: error
-			})).finally(() => clearTabIdAndApplyUpdate());
-		});
-		if (message.type === "download_transcript_at_index") if (typeof message.index === "number" && message.index >= 0) downloadTranscript(message.index, false).then(() => sendResponse({ success: true })).catch((error) => sendResponse({
-			success: false,
-			message: error
-		}));
-		else sendResponse({
-			success: false,
-			message: {
-				errorCode: ErrorCode.INVALID_INDEX,
-				errorMessage: "Invalid index"
-			}
-		});
-		if (message.type === "post_webhook_at_index") if (typeof message.index === "number" && message.index >= 0) postTranscriptToWebhook(message.index).then(() => sendResponse({ success: true })).catch((error) => {
-			console.error("Webhook retry failed:", error);
-			sendResponse({
-				success: false,
-				message: error
-			});
-		});
-		else sendResponse({
-			success: false,
-			message: {
-				errorCode: ErrorCode.INVALID_INDEX,
-				errorMessage: "Invalid index"
-			}
-		});
-		if (message.type === "recover_last_meeting") recoverLastMeeting().then((msg) => sendResponse({
-			success: true,
-			message: msg
-		})).catch((error) => sendResponse({
-			success: false,
-			message: error
-		}));
-		if (message.type === "open_popup") chrome.action.openPopup().then((msg) => sendResponse({
-			success: true,
-			message: String(msg)
-		})).catch((error) => sendResponse({
-			success: false,
-			message: String(error)
-		}));
-		return true;
-	});
+	//#region src/background/event-listeners.ts
 	chrome.tabs.onRemoved.addListener((tabId) => {
-		StorageLocal.getMeetingTabId().then((meetingTabId) => {
-			if (tabId === meetingTabId) {
+		StorageLocal.getMeetingTabId().then((id) => {
+			if (tabId === id) {
 				console.log("Successfully intercepted tab close");
-				StorageLocal.setMeetingTabId("processing").then(() => {
-					processLastMeeting().finally(() => clearTabIdAndApplyUpdate());
-				});
+				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().finally(() => clearTabIdAndApplyUpdate()));
 			}
 		});
 	});
 	chrome.runtime.onUpdateAvailable.addListener(() => {
-		StorageLocal.getMeetingTabId().then((meetingTabId) => {
-			if (meetingTabId) StorageLocal.setDeferredUpdate(true).then(() => console.log("Deferred update flag set"));
+		StorageLocal.getMeetingTabId().then((id) => {
+			if (id) StorageLocal.setDeferredUpdate(true).then(() => console.log("Deferred update flag set"));
 			else {
 				console.log("No active meeting, applying update immediately");
 				chrome.runtime.reload();
@@ -409,12 +370,61 @@
 		reRegisterContentScripts();
 		StorageSync.getSettings().then((sync) => {
 			StorageSync.saveSettings({
-				autoPostWebhookAfterMeeting: sync.autoPostWebhookAfterMeeting === false ? false : true,
-				autoDownloadFileAfterMeeting: sync.autoDownloadFileAfterMeeting === false ? false : true,
+				autoPostWebhookAfterMeeting: sync.autoPostWebhookAfterMeeting !== false,
+				autoDownloadFileAfterMeeting: sync.autoDownloadFileAfterMeeting !== false,
 				operationMode: sync.operationMode === "manual" ? "manual" : "auto",
 				webhookBodyType: sync.webhookBodyType === "advanced" ? "advanced" : "simple"
 			});
 		});
+	});
+	//#endregion
+	//#region src/background/index.ts
+	var ok = { success: true };
+	var err = (e) => ({
+		success: false,
+		message: e
+	});
+	var invalidIndex = {
+		success: false,
+		message: {
+			errorCode: ErrorCode.INVALID_INDEX,
+			errorMessage: "Invalid index"
+		}
+	};
+	var isValidIndex = (i) => typeof i === "number" && i >= 0;
+	chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
+		if (sender.id !== chrome.runtime.id) return;
+		const msg = raw;
+		console.log(msg.type);
+		if (msg.type === "new_meeting_started") {
+			chrome.tabs.query({
+				active: true,
+				currentWindow: true
+			}, (tabs) => {
+				const tabId = tabs[0]?.id;
+				if (tabId !== void 0) StorageLocal.setMeetingTabId(tabId).then(() => console.log("Meeting tab id saved"));
+			});
+			chrome.action.setBadgeText({ text: "REC" });
+			chrome.action.setBadgeBackgroundColor({ color: "#c0392b" });
+		}
+		if (msg.type === "meeting_ended") StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))).finally(() => clearTabIdAndApplyUpdate()));
+		if (msg.type === "download_transcript_at_index") isValidIndex(msg.index) ? DownloadService.download(msg.index).then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))) : sendResponse(invalidIndex);
+		if (msg.type === "post_webhook_at_index") isValidIndex(msg.index) ? WebhookService.post(msg.index).then(() => sendResponse(ok)).catch((e) => {
+			console.error("Webhook retry failed:", e);
+			sendResponse(err(e));
+		}) : sendResponse(invalidIndex);
+		if (msg.type === "recover_last_meeting") MeetingService.recoverMeeting().then((m) => sendResponse({
+			success: true,
+			message: m
+		})).catch((e) => sendResponse(err(e)));
+		if (msg.type === "open_popup") chrome.action.openPopup().then((m) => sendResponse({
+			success: true,
+			message: String(m)
+		})).catch((e) => sendResponse({
+			success: false,
+			message: String(e)
+		}));
+		return true;
 	});
 	//#endregion
 })();
