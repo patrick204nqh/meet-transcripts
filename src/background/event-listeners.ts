@@ -1,7 +1,7 @@
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { MeetingService } from '../services/meeting-service'
 import { clearTabIdAndApplyUpdate } from './lifecycle'
-import { reRegisterContentScript } from './content-scripts'
+import { reRegisterContentScript } from './content-script'
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   StorageLocal.getMeetingTabId().then((id) => {
