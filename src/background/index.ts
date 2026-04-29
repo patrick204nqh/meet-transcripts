@@ -1,4 +1,5 @@
 import type { ExtensionMessage, ExtensionResponse, ErrorObject } from '../types'
+import { ErrorCode } from '../shared/errors'
 import { processLastMeeting, recoverLastMeeting } from './meeting-storage'
 import { downloadTranscript } from './download'
 import { postTranscriptToWebhook } from './webhook'
@@ -38,7 +39,7 @@ chrome.runtime.onMessage.addListener((messageUntyped, sender, sendResponse) => {
         .then(() => sendResponse({ success: true } satisfies ExtensionResponse))
         .catch((error: ErrorObject) => sendResponse({ success: false, message: error } satisfies ExtensionResponse))
     } else {
-      sendResponse({ success: false, message: { errorCode: "015", errorMessage: "Invalid index" } } satisfies ExtensionResponse)
+      sendResponse({ success: false, message: { errorCode: ErrorCode.INVALID_INDEX, errorMessage: "Invalid index" } } satisfies ExtensionResponse)
     }
   }
 
@@ -51,7 +52,7 @@ chrome.runtime.onMessage.addListener((messageUntyped, sender, sendResponse) => {
           sendResponse({ success: false, message: error } satisfies ExtensionResponse)
         })
     } else {
-      sendResponse({ success: false, message: { errorCode: "015", errorMessage: "Invalid index" } } satisfies ExtensionResponse)
+      sendResponse({ success: false, message: { errorCode: ErrorCode.INVALID_INDEX, errorMessage: "Invalid index" } } satisfies ExtensionResponse)
     }
   }
 

@@ -1,4 +1,5 @@
 import type { TranscriptBlock, ChatMessage } from '../types'
+import { ErrorCode } from '../shared/errors'
 
 const timeFormat: Intl.DateTimeFormatOptions = {
   year: "numeric",
@@ -26,10 +27,10 @@ export function getChatMessagesString(chatMessages: ChatMessage[]): string {
 export function downloadTranscript(index: number, _isWebhookEnabled: boolean): Promise<void> {
   return new Promise((resolve, reject) => {
     chrome.storage.local.get(["meetings"], (raw) => {
-      const result = raw as { meetings?: Array<{ meetingTitle?: string; title?: string; meetingSoftware?: string; meetingStartTimestamp: string; transcript: TranscriptBlock[]; chatMessages: ChatMessage[] }> }
+      const result = raw as { meetings?: Array<{ meetingTitle?: string; meetingSoftware?: string; meetingStartTimestamp: string; transcript: TranscriptBlock[]; chatMessages: ChatMessage[] }> }
 
       if (!result.meetings || !result.meetings[index]) {
-        reject({ errorCode: "010", errorMessage: "Meeting at specified index not found" })
+        reject({ errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" })
         return
       }
 
@@ -38,8 +39,6 @@ export function downloadTranscript(index: number, _isWebhookEnabled: boolean): P
       let sanitisedTitle = "Meeting"
       if (meeting.meetingTitle) {
         sanitisedTitle = meeting.meetingTitle.replaceAll(invalidFilenameRegex, "_")
-      } else if (meeting.title) {
-        sanitisedTitle = meeting.title.replaceAll(invalidFilenameRegex, "_")
       }
 
       const timestamp = new Date(meeting.meetingStartTimestamp)
@@ -59,7 +58,7 @@ export function downloadTranscript(index: number, _isWebhookEnabled: boolean): P
       reader.readAsDataURL(blob)
       reader.onload = (event) => {
         if (!event.target?.result) {
-          reject({ errorCode: "009", errorMessage: "Failed to read blob" })
+          reject({ errorCode: ErrorCode.BLOB_READ_FAILED, errorMessage: "Failed to read blob" })
           return
         }
         const dataUrl = event.target.result as string

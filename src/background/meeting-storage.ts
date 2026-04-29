@@ -1,4 +1,5 @@
 import type { Meeting } from '../types'
+import { ErrorCode } from '../shared/errors'
 import { downloadTranscript } from './download'
 import { postTranscriptToWebhook } from './webhook'
 
@@ -16,11 +17,11 @@ export function pickupLastMeetingFromStorage(): Promise<string> {
         }
 
         if (!result.meetingStartTimestamp) {
-          reject({ errorCode: "013", errorMessage: "No meetings found. May be attend one?" })
+          reject({ errorCode: ErrorCode.NO_MEETINGS, errorMessage: "No meetings found. May be attend one?" })
           return
         }
         if (!result.transcript?.length && !result.chatMessages?.length) {
-          reject({ errorCode: "014", errorMessage: "Empty transcript and empty chatMessages" })
+          reject({ errorCode: ErrorCode.EMPTY_TRANSCRIPT, errorMessage: "Empty transcript and empty chatMessages" })
           return
         }
 

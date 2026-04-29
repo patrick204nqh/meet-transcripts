@@ -1,4 +1,16 @@
 (function() {
+	//#region src/shared/errors.ts
+	var ErrorCode = {
+		BLOB_READ_FAILED: "009",
+		MEETING_NOT_FOUND: "010",
+		WEBHOOK_REQUEST_FAILED: "011",
+		NO_WEBHOOK_URL: "012",
+		NO_MEETINGS: "013",
+		EMPTY_TRANSCRIPT: "014",
+		INVALID_INDEX: "015",
+		NO_HOST_PERMISSION: "016"
+	};
+	//#endregion
 	//#region src/background/download.ts
 	var timeFormat$1 = {
 		year: "numeric",
@@ -22,7 +34,7 @@
 				const result = raw;
 				if (!result.meetings || !result.meetings[index]) {
 					reject({
-						errorCode: "010",
+						errorCode: ErrorCode.MEETING_NOT_FOUND,
 						errorMessage: "Meeting at specified index not found"
 					});
 					return;
@@ -31,7 +43,6 @@
 				const invalidFilenameRegex = /[:?"*<>|~/\\\u{1}-\u{1f}\u{7f}\u{80}-\u{9f}\p{Cf}\p{Cn}]|^[.\u{0}\p{Zl}\p{Zp}\p{Zs}]|[.\u{0}\p{Zl}\p{Zp}\p{Zs}]$|^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?=\.|$)/giu;
 				let sanitisedTitle = "Meeting";
 				if (meeting.meetingTitle) sanitisedTitle = meeting.meetingTitle.replaceAll(invalidFilenameRegex, "_");
-				else if (meeting.title) sanitisedTitle = meeting.title.replaceAll(invalidFilenameRegex, "_");
 				const formattedTimestamp = new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat$1).replace(/[/:]/g, "-");
 				const fileName = `meet-transcripts/${meeting.meetingSoftware ? `${meeting.meetingSoftware} transcript` : "Transcript"}-${sanitisedTitle} at ${formattedTimestamp} on.txt`;
 				let content = getTranscriptString(meeting.transcript);
@@ -46,7 +57,7 @@
 				reader.onload = (event) => {
 					if (!event.target?.result) {
 						reject({
-							errorCode: "009",
+							errorCode: ErrorCode.BLOB_READ_FAILED,
 							errorMessage: "Failed to read blob"
 						});
 						return;
@@ -92,24 +103,24 @@
 		const webhookUrl = syncRaw.webhookUrl;
 		const webhookBodyType = syncRaw.webhookBodyType === "advanced" ? "advanced" : "simple";
 		if (!webhookUrl) throw {
-			errorCode: "012",
+			errorCode: ErrorCode.NO_WEBHOOK_URL,
 			errorMessage: "No webhook URL configured"
 		};
 		if (!meetings || !meetings[index]) throw {
-			errorCode: "010",
+			errorCode: ErrorCode.MEETING_NOT_FOUND,
 			errorMessage: "Meeting at specified index not found"
 		};
 		const urlObj = new URL(webhookUrl);
 		const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`;
 		if (!await new Promise((res) => chrome.permissions.contains({ origins: [originPattern] }, res))) throw {
-			errorCode: "016",
+			errorCode: ErrorCode.NO_HOST_PERMISSION,
 			errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission."
 		};
 		const meeting = meetings[index];
 		const webhookData = webhookBodyType === "advanced" ? {
 			webhookBodyType: "advanced",
 			meetingSoftware: meeting.meetingSoftware || "",
-			meetingTitle: meeting.meetingTitle || meeting.title || "",
+			meetingTitle: meeting.meetingTitle || "",
 			meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toISOString(),
 			meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toISOString(),
 			transcript: meeting.transcript,
@@ -117,7 +128,7 @@
 		} : {
 			webhookBodyType: "simple",
 			meetingSoftware: meeting.meetingSoftware || "",
-			meetingTitle: meeting.meetingTitle || meeting.title || "",
+			meetingTitle: meeting.meetingTitle || "",
 			meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
 			meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
 			transcript: getTranscriptString(meeting.transcript),
@@ -129,7 +140,7 @@
 			body: JSON.stringify(webhookData)
 		}).catch((error) => {
 			throw {
-				errorCode: "011",
+				errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED,
 				errorMessage: error
 			};
 		});
@@ -145,7 +156,7 @@
 				notificationClickTargets.add(notificationId);
 			});
 			throw {
-				errorCode: "011",
+				errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED,
 				errorMessage: `HTTP ${response.status} ${response.statusText}`
 			};
 		}
@@ -167,14 +178,14 @@
 				const result = raw;
 				if (!result.meetingStartTimestamp) {
 					reject({
-						errorCode: "013",
+						errorCode: ErrorCode.NO_MEETINGS,
 						errorMessage: "No meetings found. May be attend one?"
 					});
 					return;
 				}
 				if (!result.transcript?.length && !result.chatMessages?.length) {
 					reject({
-						errorCode: "014",
+						errorCode: ErrorCode.EMPTY_TRANSCRIPT,
 						errorMessage: "Empty transcript and empty chatMessages"
 					});
 					return;
@@ -358,7 +369,7 @@
 		else sendResponse({
 			success: false,
 			message: {
-				errorCode: "015",
+				errorCode: ErrorCode.INVALID_INDEX,
 				errorMessage: "Invalid index"
 			}
 		});
@@ -372,7 +383,7 @@
 		else sendResponse({
 			success: false,
 			message: {
-				errorCode: "015",
+				errorCode: ErrorCode.INVALID_INDEX,
 				errorMessage: "Invalid index"
 			}
 		});

@@ -1,4 +1,5 @@
 import type { Meeting, WebhookBody } from '../types'
+import { ErrorCode } from '../shared/errors'
 import { getTranscriptString, getChatMessagesString } from './download'
 
 const timeFormat: Intl.DateTimeFormatOptions = {
@@ -27,20 +28,20 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
   const webhookUrl = syncRaw.webhookUrl as string | undefined
   const webhookBodyType = (syncRaw.webhookBodyType as string) === "advanced" ? "advanced" : "simple"
 
-  if (!webhookUrl) throw { errorCode: "012", errorMessage: "No webhook URL configured" }
-  if (!meetings || !meetings[index]) throw { errorCode: "010", errorMessage: "Meeting at specified index not found" }
+  if (!webhookUrl) throw { errorCode: ErrorCode.NO_WEBHOOK_URL, errorMessage: "No webhook URL configured" }
+  if (!meetings || !meetings[index]) throw { errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" }
 
   const urlObj = new URL(webhookUrl)
   const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`
   const hasPermission = await new Promise<boolean>(res => chrome.permissions.contains({ origins: [originPattern] }, res))
-  if (!hasPermission) throw { errorCode: "016", errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission." }
+  if (!hasPermission) throw { errorCode: ErrorCode.NO_HOST_PERMISSION, errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission." }
 
   const meeting = meetings[index]
   const webhookData: WebhookBody = webhookBodyType === "advanced"
     ? {
         webhookBodyType: "advanced",
         meetingSoftware: meeting.meetingSoftware || "",
-        meetingTitle: meeting.meetingTitle || meeting.title || "",
+        meetingTitle: meeting.meetingTitle || "",
         meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toISOString(),
         meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toISOString(),
         transcript: meeting.transcript,
@@ -49,7 +50,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
     : {
         webhookBodyType: "simple",
         meetingSoftware: meeting.meetingSoftware || "",
-        meetingTitle: meeting.meetingTitle || meeting.title || "",
+        meetingTitle: meeting.meetingTitle || "",
         meetingStartTimestamp: new Date(meeting.meetingStartTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
         meetingEndTimestamp: new Date(meeting.meetingEndTimestamp).toLocaleString("default", timeFormat).toUpperCase(),
         transcript: getTranscriptString(meeting.transcript),
@@ -60,7 +61,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(webhookData),
-  }).catch(error => { throw { errorCode: "011", errorMessage: error } })
+  }).catch(error => { throw { errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED, errorMessage: error } })
 
   if (!response.ok) {
     meetings[index].webhookPostStatus = "failed"
@@ -73,7 +74,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
     }, (notificationId) => {
       notificationClickTargets.add(notificationId)
     })
-    throw { errorCode: "011", errorMessage: `HTTP ${response.status} ${response.statusText}` }
+    throw { errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED, errorMessage: `HTTP ${response.status} ${response.statusText}` }
   }
 
   meetings[index].webhookPostStatus = "successful"
