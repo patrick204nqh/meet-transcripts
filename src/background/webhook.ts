@@ -53,7 +53,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
     await StorageLocal.setMeetings(withFailed)
     chrome.notifications?.create({
       type: "basic",
-      iconUrl: "icon.png",
+      iconUrl: "icons/icon-128.png",
       title: "Could not post webhook!",
       message: `HTTP ${response.status} ${response.statusText}. Click to view and retry.`,
     }, (notificationId) => {

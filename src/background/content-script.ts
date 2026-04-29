@@ -37,7 +37,7 @@ export function registerContentScript(platform: Platform, showNotification = tru
                 if (hasNotifyPermission && chrome.notifications) {
                   chrome.notifications.create({
                     type: "basic",
-                    iconUrl: "icon.png",
+                    iconUrl: "icons/icon-128.png",
                     title: "Enabled!",
                     message: "Refresh any existing meeting pages",
                   })
