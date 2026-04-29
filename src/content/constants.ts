@@ -1,4 +1,4 @@
-import type { ExtensionStatusJSON, MeetingSoftware } from './types'
+import type { ExtensionStatusJSON, MeetingSoftware } from '../types'
 
 export const bugStatusJson: ExtensionStatusJSON = {
   status: 400,

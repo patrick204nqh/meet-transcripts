@@ -1,10 +1,10 @@
-import type { ErrorObject } from './types'
-import { ErrorCode } from './shared/errors'
+import type { ErrorObject } from '../types'
+import { ErrorCode } from '../shared/errors'
 import { state } from './state'
 import { waitForElement, showNotification } from './ui'
 import { persistStateFields } from './state-sync'
-import { recoverLastMeeting } from './shared/messages'
-import { checkExtensionStatus, meetingRoutines } from './meeting'
+import { recoverLastMeeting } from '../shared/messages'
+import { checkExtensionStatus, meetingRoutines } from './meeting-session'
 
 // Attempt to recover last meeting, if any. Abort if it takes more than 2 seconds.
 Promise.race([

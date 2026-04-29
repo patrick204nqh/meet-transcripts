@@ -1,4 +1,4 @@
-import type { ExtensionMessage } from './types'
+import type { ExtensionMessage } from '../types'
 import { state } from './state'
 import { mutationConfig, bugStatusJson } from './constants'
 import { selectElements, waitForElement, showNotification, logError } from './ui'

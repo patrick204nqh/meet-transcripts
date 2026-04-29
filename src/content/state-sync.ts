@@ -1,8 +1,8 @@
-import type { ErrorObject } from './types'
+import type { ErrorObject } from '../types'
 import { state } from './state'
 import { meetingSoftware as meetingSoftwareConst } from './constants'
 import { pulseStatus } from './ui'
-import { sendMessage } from './shared/messages'
+import { sendMessage } from '../shared/messages'
 
 type StorageKey = "software" | "title" | "startTimestamp" | "transcript" | "chatMessages"
 
@@ -26,4 +26,3 @@ export function persistStateFields(keys: StorageKey[], sendEndMessage: boolean):
     }
   })
 }
-

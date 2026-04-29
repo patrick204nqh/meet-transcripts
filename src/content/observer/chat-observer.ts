@@ -1,4 +1,4 @@
-import type { ChatMessage } from '../types'
+import type { ChatMessage } from '../../types'
 import { state } from '../state'
 import { bugStatusJson, reportErrorMessage } from '../constants'
 import { showNotification, logError } from '../ui'
