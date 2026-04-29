@@ -15,10 +15,10 @@
 /**
  * @typedef {Object} WebhookBody
  * @property {"simple" | "advanced"} webhookBodyType simple or advanced
- * @property {MeetingSoftware} meetingSoftware
- * @property {string} meetingTitle title of the meeting
- * @property {string} meetingStartTimestamp ISO timestamp of when the meeting started
- * @property {string} meetingEndTimestamp ISO timestamp of when the meeting ended
+ * @property {MeetingSoftware} software
+ * @property {string} title title of the meeting
+ * @property {string} startTimestamp ISO timestamp of when the meeting started
+ * @property {string} endTimestamp ISO timestamp of when the meeting ended
  * @property {TranscriptBlock[] | string} transcript transcript as a formatted string or array containing transcript blocks from the meeting
  * @property {ChatMessage[] | string} chatMessages chat messages as a formatted string or array containing chat messages from the meeting
  */
@@ -30,12 +30,12 @@
  * @typedef {Object} ResultLocal Local chrome storage
  * @property {ExtensionStatusJSON} extensionStatusJSON
  * @property {MeetingTabId} meetingTabId
- * @property {MeetingSoftware} meetingSoftware
- * @property {MeetingTitle} meetingTitle
- * @property {MeetingStartTimestamp} meetingStartTimestamp
- * @property {Transcript} transcript
- * @property {ChatMessages} chatMessages
- * @property {IsDeferredUpdatedAvailable | undefined} isDeferredUpdatedAvailable
+ * @property {MeetingSoftware} software
+ * @property {string} title
+ * @property {string} startTimestamp
+ * @property {TranscriptBlock[]} transcript
+ * @property {ChatMessage[]} chatMessages
+ * @property {boolean | undefined} isDeferredUpdateAvailable
  * @property {Meeting[] | undefined} meetings
  */
 
@@ -47,11 +47,10 @@
 */
 /**
  * @typedef {Object} Meeting
- * @property {MeetingSoftware} [meetingSoftware]
- * @property {string | undefined} [meetingTitle] title of the meeting
- * @property {string | undefined} [title] title of the meeting (this is older key for meetingTitle key, in v3.1.0)
- * @property {string} meetingStartTimestamp ISO timestamp of when the meeting started
- * @property {string} meetingEndTimestamp ISO timestamp of when the meeting ended
+ * @property {MeetingSoftware} [software]
+ * @property {string | undefined} [title] title of the meeting
+ * @property {string} startTimestamp ISO timestamp of when the meeting started
+ * @property {string} endTimestamp ISO timestamp of when the meeting ended
  * @property {TranscriptBlock[] | []} transcript array containing transcript blocks from the meeting
  * @property {ChatMessage[] | []} chatMessages array containing chat messages from the meeting
  * @property {"new" | "failed" | "successful"} webhookPostStatus status of the webhook post request
@@ -76,7 +75,7 @@
  * @typedef {ChatMessage[]} ChatMessages Chat messages captured during the most recent meeting, dumped by content script
  */
 /**
- * @typedef {boolean} IsDeferredUpdatedAvailable whether the extension has a deferred updated waiting to be applied
+ * @typedef {boolean} IsDeferredUpdateAvailable whether the extension has a deferred update waiting to be applied
  */
 
 
