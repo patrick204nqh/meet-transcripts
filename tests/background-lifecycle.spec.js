@@ -47,4 +47,39 @@ test.describe('Background lifecycle', () => {
       { timeout: 2000 }
     ).toBe(thisTabId)
   })
+
+  test('tabs.onUpdated finalizes meeting when Meet tab navigates away from call URL', async ({ context, page, extensionId }) => {
+    await page.goto(`chrome-extension://${extensionId}/popup.html`)
+
+    // Get the popup tab's ID
+    const thisTabId = await page.evaluate(() => {
+      return new Promise((resolve) => chrome.tabs.getCurrent((tab) => resolve(tab ? tab.id : null)))
+    })
+
+    // Seed: pretend this tab is the active meeting tab with transcript data
+    await page.evaluate((tabId) => {
+      return new Promise((resolve) => chrome.storage.local.set({
+        meetingTabId: tabId,
+        startTimestamp: new Date().toISOString(),
+        transcript: [{ personName: 'Alice', timestamp: new Date().toISOString(), text: 'Hello world' }],
+        chatMessages: [],
+      }, resolve))
+    }, thisTabId)
+
+    // Verify meetingTabId is set to this tab
+    const before = await page.evaluate(() => {
+      return new Promise((resolve) => chrome.storage.local.get(['meetingTabId'], (r) => resolve(r.meetingTabId)))
+    })
+    expect(before).toBe(thisTabId)
+
+    // Navigate this tab to Meet lobby (non-call URL) — triggers tabs.onUpdated with a URL change
+    await page.goto('https://meet.google.com/')
+
+    // The background listener should detect the navigation and finalize the meeting
+    // meetingTabId should no longer match the original tab ID
+    await expect.poll(
+      () => page.evaluate(() => new Promise((resolve) => chrome.storage.local.get(['meetingTabId'], (r) => resolve(r.meetingTabId)))),
+      { timeout: 3000 }
+    ).not.toBe(thisTabId)
+  })
 })
