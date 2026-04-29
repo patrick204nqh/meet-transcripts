@@ -17,7 +17,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.runtime.onUpdateAvailable.addListener(() => {
   StorageLocal.getMeetingTabId().then((id) => {
     if (id) {
-      StorageLocal.setDeferredUpdate(true).then(() => console.log("Deferred update flag set"))
+      StorageLocal.setDeferredUpdatePending(true).then(() => console.log("Deferred update flag set"))
     } else {
       console.log("No active meeting, applying update immediately")
       chrome.runtime.reload()

@@ -7,7 +7,7 @@ export interface LocalState {
   startTimestamp: string
   transcript: TranscriptBlock[]
   chatMessages: ChatMessage[]
-  isDeferredUpdateAvailable: boolean
+  deferredUpdatePending: boolean
   meetings: Meeting[]
 }
 
@@ -83,12 +83,12 @@ export const StorageLocal = {
     chrome.storage.local.set(data),
 
   getDeferredUpdatePending: async (): Promise<boolean> => {
-    const raw = await chrome.storage.local.get(["isDeferredUpdateAvailable"])
-    return !!(raw.isDeferredUpdateAvailable as boolean | undefined)
+    const raw = await chrome.storage.local.get(["deferredUpdatePending"])
+    return !!(raw.deferredUpdatePending as boolean | undefined)
   },
 
-  setDeferredUpdate: (value: boolean): Promise<void> =>
-    chrome.storage.local.set({ isDeferredUpdateAvailable: value }),
+  setDeferredUpdatePending: (value: boolean): Promise<void> =>
+    chrome.storage.local.set({ deferredUpdatePending: value }),
 }
 
 export const StorageSync = {

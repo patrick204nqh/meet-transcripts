@@ -7,7 +7,7 @@ export async function clearTabIdAndApplyUpdate(): Promise<void> {
 
   if (await StorageLocal.getDeferredUpdatePending()) {
     console.log("Applying deferred update")
-    await StorageLocal.setDeferredUpdate(false)
+    await StorageLocal.setDeferredUpdatePending(false)
     chrome.runtime.reload()
   }
 }
