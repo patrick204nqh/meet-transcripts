@@ -1,6 +1,6 @@
 import type { TranscriptBlock, ChatMessage } from '../types'
 
-const timeFormat: Intl.DateTimeFormatOptions = {
+export const timeFormat: Intl.DateTimeFormatOptions = {
   year: "numeric",
   month: "2-digit",
   day: "2-digit",

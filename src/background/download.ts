@@ -1,15 +1,6 @@
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal } from '../shared/storage-repo'
-import { getTranscriptString, getChatMessagesString } from '../shared/formatters'
-
-const timeFormat: Intl.DateTimeFormatOptions = {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: true,
-}
+import { getTranscriptString, getChatMessagesString, timeFormat } from '../shared/formatters'
 
 export async function downloadTranscript(index: number): Promise<void> {
   const meetings = await StorageLocal.getMeetings()

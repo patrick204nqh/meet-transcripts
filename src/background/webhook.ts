@@ -1,16 +1,7 @@
 import type { Meeting, WebhookBody } from '../types'
 import { ErrorCode } from '../shared/errors'
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
-import { getTranscriptString, getChatMessagesString } from '../shared/formatters'
-
-const timeFormat: Intl.DateTimeFormatOptions = {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: true,
-}
+import { getTranscriptString, getChatMessagesString, timeFormat } from '../shared/formatters'
 
 const notificationClickTargets = new Set<string>()
 
