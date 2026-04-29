@@ -54,7 +54,7 @@ This extension is installed in Chrome as an unpacked extension. It requires **de
 
 To update: pull the latest `main`, run `npm run build`, then click the refresh icon on the extension card at `chrome://extensions`.
 
-> **Development:** use `npm run dev` to watch `src/` for changes and rebuild `extension/content-google-meet.js` automatically.
+> **Development:** use `npm run dev` to watch `src/` for changes and rebuild `extension/google-meet.js` and `extension/background.js` automatically.
 
 ---
 

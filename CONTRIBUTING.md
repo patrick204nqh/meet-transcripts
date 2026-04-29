@@ -7,29 +7,39 @@ Meet Transcripts is an independently maintained project. There is no upstream re
 ## Development setup
 
 1. Clone the repository
-2. Open Chrome and go to `chrome://extensions`
-3. Enable **Developer mode**
-4. Click **Load unpacked** and select the `extension/` folder
-5. Edit files in `extension/` and click the refresh icon at `chrome://extensions` to reload
+2. Install dependencies and build: `npm install && npm run build`
+3. Open Chrome and go to `chrome://extensions`
+4. Enable **Developer mode**
+5. Click **Load unpacked** and select the `extension/` folder
+6. While iterating, run `npm run dev` to rebuild on save, then click the refresh icon at `chrome://extensions` to reload
 
-No build step is required. The extension runs directly from source.
+The TypeScript source under `src/` is the canonical code; Vite compiles it into the two IIFE bundles in `extension/`. Edit `src/`, never `extension/background.js` or `extension/google-meet.js`.
 
 ---
 
 ## Project structure
 
 ```
-extension/
+src/                       # TypeScript source — canonical
+├── types.ts               # Domain types and message contracts
+├── shared/                # Pure utilities (formatters, errors, storage repo, messages)
+├── services/              # Use-case orchestration (meeting, download, webhook)
+├── background/            # Chrome API adapters (message-handler, event-listeners, lifecycle)
+└── content/               # DOM observers (google-meet entry, observers, state-sync, ui)
+
+extension/                 # Built artifacts and unbundled UI
 ├── manifest.json          # Extension manifest (MV3)
-├── popup.html / popup.js  # Toolbar popup UI
-├── meetings.html / meetings.js  # Meeting history and webhook config
-├── background.js          # Service worker
-├── content-google-meet.js # Caption capture (injected into meet.google.com)
+├── popup.html / popup.js  # Toolbar popup UI (plain JS, not compiled)
+├── meetings.html / meetings.js  # Meeting history and webhook config (plain JS, not compiled)
+├── background.js          # Compiled service worker (do not edit by hand)
+├── google-meet.js         # Compiled content script (do not edit by hand)
 ├── icon.png               # Toolbar icon (128×128 PNG)
 └── icons/                 # SVG assets and logo
+
 docs/
-├── architecture.md        # Extension internals
-└── decisions/             # Architecture Decision Records (ADRs)
+├── architecture.md        # Extension internals (C4 diagrams)
+├── decisions/             # Architecture Decision Records (ADRs)
+└── plans/                 # Implementation plans
 ```
 
 ---
@@ -66,7 +76,7 @@ Open an issue first to discuss the approach before writing code. Meet Transcript
 
 ### Google Meet DOM changes
 
-Caption capture relies on DOM selectors in `content-google-meet.js`. If Google updates their UI these selectors may break silently. When fixing a broken selector:
+Caption capture relies on DOM selectors in `src/content/` (compiled into `extension/google-meet.js`). If Google updates their UI these selectors may break silently. When fixing a broken selector:
 
 - Document the old and new selector in the commit message
 - Note the approximate date Google rolled out the change
