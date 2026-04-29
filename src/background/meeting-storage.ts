@@ -24,10 +24,9 @@ export async function pickupLastMeeting(): Promise<string> {
     webhookPostStatus: "new",
   }
 
-  let meetings = await StorageLocal.getMeetings()
-  meetings.push(newEntry)
-  if (meetings.length > 10) meetings = meetings.slice(-10)
-  await StorageLocal.setMeetings(meetings)
+  const meetings = await StorageLocal.getMeetings()
+  const updated = [...meetings, newEntry].slice(-10)
+  await StorageLocal.setMeetings(updated)
   console.log("Last meeting picked up")
   return "Last meeting picked up"
 }
