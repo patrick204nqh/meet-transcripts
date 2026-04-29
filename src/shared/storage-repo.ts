@@ -7,7 +7,7 @@ export interface LocalState {
   meetingStartTimestamp: string
   transcript: TranscriptBlock[]
   chatMessages: ChatMessage[]
-  isDeferredUpdatedAvailable: boolean
+  isDeferredUpdateAvailable: boolean
   meetings: Meeting[]
 }
 
@@ -25,7 +25,7 @@ export const StorageLocal = {
     return (raw.meetings as Meeting[] | undefined) ?? []
   },
 
-  saveMeetings: (meetings: Meeting[]): Promise<void> =>
+  setMeetings: (meetings: Meeting[]): Promise<void> =>
     chrome.storage.local.set({ meetings }),
 
   getMeetingTabId: async (): Promise<MeetingTabId> => {
@@ -46,13 +46,13 @@ export const StorageLocal = {
   setCurrentMeetingData: (data: Partial<Pick<LocalState, "meetingSoftware" | "meetingTitle" | "meetingStartTimestamp" | "transcript" | "chatMessages">>): Promise<void> =>
     chrome.storage.local.set(data),
 
-  isDeferredUpdateAvailable: async (): Promise<boolean> => {
-    const raw = await chrome.storage.local.get(["isDeferredUpdatedAvailable"])
-    return !!(raw.isDeferredUpdatedAvailable as boolean | undefined)
+  getDeferredUpdatePending: async (): Promise<boolean> => {
+    const raw = await chrome.storage.local.get(["isDeferredUpdateAvailable"])
+    return !!(raw.isDeferredUpdateAvailable as boolean | undefined)
   },
 
   setDeferredUpdate: (value: boolean): Promise<void> =>
-    chrome.storage.local.set({ isDeferredUpdatedAvailable: value }),
+    chrome.storage.local.set({ isDeferredUpdateAvailable: value }),
 }
 
 export const StorageSync = {
@@ -64,15 +64,15 @@ export const StorageSync = {
     return raw as Partial<SyncSettings>
   },
 
-  saveSettings: (settings: Partial<SyncSettings>): Promise<void> =>
+  setSettings: (settings: Partial<SyncSettings>): Promise<void> =>
     chrome.storage.sync.set(settings),
 
-  getWebhookConfig: async (): Promise<{ webhookUrl?: string; webhookBodyType?: WebhookBodyType }> => {
+  getWebhookSettings: async (): Promise<{ webhookUrl?: string; webhookBodyType?: WebhookBodyType }> => {
     const raw = await chrome.storage.sync.get(["webhookUrl", "webhookBodyType"])
     return raw as { webhookUrl?: string; webhookBodyType?: WebhookBodyType }
   },
 
-  getDownloadConfig: async (): Promise<{ webhookUrl?: string; autoPostWebhookAfterMeeting?: boolean; autoDownloadFileAfterMeeting?: boolean }> => {
+  getAutoActionSettings: async (): Promise<{ webhookUrl?: string; autoPostWebhookAfterMeeting?: boolean; autoDownloadFileAfterMeeting?: boolean }> => {
     const raw = await chrome.storage.sync.get(["webhookUrl", "autoPostWebhookAfterMeeting", "autoDownloadFileAfterMeeting"])
     return raw as { webhookUrl?: string; autoPostWebhookAfterMeeting?: boolean; autoDownloadFileAfterMeeting?: boolean }
   },

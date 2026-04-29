@@ -5,7 +5,7 @@ export async function clearTabIdAndApplyUpdate(): Promise<void> {
   await StorageLocal.setMeetingTabId(null)
   console.log("Meeting tab id cleared for next meeting")
 
-  if (await StorageLocal.isDeferredUpdateAvailable()) {
+  if (await StorageLocal.getDeferredUpdatePending()) {
     console.log("Applying deferred update")
     await StorageLocal.setDeferredUpdate(false)
     chrome.runtime.reload()

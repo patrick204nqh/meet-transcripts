@@ -24,7 +24,7 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 export async function postTranscriptToWebhook(index: number): Promise<string> {
   const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([
     StorageLocal.getMeetings(),
-    StorageSync.getWebhookConfig(),
+    StorageSync.getWebhookSettings(),
   ])
 
   if (!webhookUrl) throw { errorCode: ErrorCode.NO_WEBHOOK_URL, errorMessage: "No webhook URL configured" }
@@ -65,7 +65,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
 
   if (!response.ok) {
     meetings[index].webhookPostStatus = "failed"
-    await StorageLocal.saveMeetings(meetings)
+    await StorageLocal.setMeetings(meetings)
     chrome.notifications.create({
       type: "basic",
       iconUrl: "icon.png",
@@ -78,6 +78,6 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
   }
 
   meetings[index].webhookPostStatus = "successful"
-  await StorageLocal.saveMeetings(meetings)
+  await StorageLocal.setMeetings(meetings)
   return "Webhook posted successfully"
 }

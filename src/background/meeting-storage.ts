@@ -27,7 +27,7 @@ export async function pickupLastMeetingFromStorage(): Promise<string> {
   let meetings = await StorageLocal.getMeetings()
   meetings.push(newEntry)
   if (meetings.length > 10) meetings = meetings.slice(-10)
-  await StorageLocal.saveMeetings(meetings)
+  await StorageLocal.setMeetings(meetings)
   console.log("Last meeting picked up")
   return "Last meeting picked up"
 }
@@ -36,7 +36,7 @@ export async function processLastMeeting(): Promise<string> {
   await pickupLastMeetingFromStorage()
 
   const meetings = await StorageLocal.getMeetings()
-  const sync = await StorageSync.getDownloadConfig()
+  const sync = await StorageSync.getAutoActionSettings()
   const lastIndex = meetings.length - 1
   const promises: Promise<unknown>[] = []
 

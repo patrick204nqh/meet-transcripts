@@ -32,7 +32,7 @@ chrome.permissions.onAdded.addListener(() => {
 chrome.runtime.onInstalled.addListener(() => {
   reRegisterContentScripts()
   StorageSync.getSettings().then((sync) => {
-    StorageSync.saveSettings({
+    StorageSync.setSettings({
       autoPostWebhookAfterMeeting: sync.autoPostWebhookAfterMeeting !== false,
       autoDownloadFileAfterMeeting: sync.autoDownloadFileAfterMeeting !== false,
       operationMode: sync.operationMode === "manual" ? "manual" : "auto",
