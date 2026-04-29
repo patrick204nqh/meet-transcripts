@@ -199,11 +199,20 @@
 	//#endregion
 	//#region src/background/webhook.ts
 	var notificationClickTargets = /* @__PURE__ */ new Set();
-	chrome.notifications.onClicked.addListener((notificationId) => {
-		if (notificationClickTargets.has(notificationId)) {
-			notificationClickTargets.delete(notificationId);
-			chrome.tabs.create({ url: "meetings.html" });
-		}
+	function registerNotificationClickListener() {
+		if (!chrome.notifications?.onClicked) return;
+		chrome.notifications.onClicked.addListener((notificationId) => {
+			if (notificationClickTargets.has(notificationId)) {
+				notificationClickTargets.delete(notificationId);
+				chrome.tabs.create({ url: "meetings.html" });
+			}
+		});
+	}
+	chrome.permissions.contains({ permissions: ["notifications"] }, (has) => {
+		if (has) registerNotificationClickListener();
+	});
+	chrome.permissions.onAdded.addListener((permissions) => {
+		if (permissions.permissions?.includes("notifications")) registerNotificationClickListener();
 	});
 	async function postTranscriptToWebhook(index) {
 		const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([StorageLocal.getMeetings(), StorageSync.getWebhookSettings()]);
@@ -239,7 +248,7 @@
 				webhookPostStatus: "failed"
 			} : m);
 			await StorageLocal.setMeetings(withFailed);
-			chrome.notifications.create({
+			chrome.notifications?.create({
 				type: "basic",
 				iconUrl: "icon.png",
 				title: "Could not post webhook!",
@@ -360,7 +369,7 @@
 					}]).then(() => {
 						console.log(`${platform} content script registered successfully.`);
 						if (showNotification) chrome.permissions.contains({ permissions: ["notifications"] }).then((hasNotifyPermission) => {
-							if (hasNotifyPermission) chrome.notifications.create({
+							if (hasNotifyPermission && chrome.notifications) chrome.notifications.create({
 								type: "basic",
 								iconUrl: "icon.png",
 								title: "Enabled!",
@@ -387,7 +396,7 @@
 		StorageLocal.getMeetingTabId().then((id) => {
 			if (tabId === id) {
 				console.log("Successfully intercepted tab close");
-				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().finally(() => clearTabIdAndApplyUpdate()));
+				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => console.error("finalizeMeeting failed on tab close:", e)).finally(() => clearTabIdAndApplyUpdate()));
 			}
 		});
 	});

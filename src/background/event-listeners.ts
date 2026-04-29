@@ -8,7 +8,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     if (tabId === id) {
       console.log("Successfully intercepted tab close")
       StorageLocal.setMeetingTabId("processing").then(() =>
-        MeetingService.finalizeMeeting().finally(() => clearTabIdAndApplyUpdate())
+        MeetingService.finalizeMeeting()
+          .catch((e) => console.error("finalizeMeeting failed on tab close:", e))
+          .finally(() => clearTabIdAndApplyUpdate())
       )
     }
   })

@@ -5,11 +5,23 @@ import { buildWebhookBody } from '../shared/formatters'
 
 const notificationClickTargets = new Set<string>()
 
-chrome.notifications.onClicked.addListener((notificationId) => {
-  if (notificationClickTargets.has(notificationId)) {
-    notificationClickTargets.delete(notificationId)
-    chrome.tabs.create({ url: "meetings.html" })
-  }
+function registerNotificationClickListener() {
+  if (!chrome.notifications?.onClicked) return
+  chrome.notifications.onClicked.addListener((notificationId) => {
+    if (notificationClickTargets.has(notificationId)) {
+      notificationClickTargets.delete(notificationId)
+      chrome.tabs.create({ url: "meetings.html" })
+    }
+  })
+}
+
+// notifications is optional — only register when the permission is present
+chrome.permissions.contains({ permissions: ["notifications"] }, (has) => {
+  if (has) registerNotificationClickListener()
+})
+
+chrome.permissions.onAdded.addListener((permissions) => {
+  if (permissions.permissions?.includes("notifications")) registerNotificationClickListener()
 })
 
 export async function postTranscriptToWebhook(index: number): Promise<string> {
@@ -39,7 +51,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
   if (!response.ok) {
     const withFailed = meetings.map((m, i) => i === index ? { ...m, webhookPostStatus: "failed" as const } : m)
     await StorageLocal.setMeetings(withFailed)
-    chrome.notifications.create({
+    chrome.notifications?.create({
       type: "basic",
       iconUrl: "icon.png",
       title: "Could not post webhook!",
