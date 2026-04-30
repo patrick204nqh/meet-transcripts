@@ -9,6 +9,50 @@ const ErrorCode = {
 
 let isMeetingsTableExpanded = false
 
+/**
+ * @param {string} message
+ * @param {'success'|'error'|'info'} type
+ * @param {number} duration
+ */
+function showToast(message, type = 'info', duration = 4000) {
+    const container = document.getElementById('toast-container')
+    if (!container) return
+    const toast = document.createElement('div')
+    toast.className = `toast toast-${type}`
+    toast.textContent = message
+    container.appendChild(toast)
+    setTimeout(() => toast.remove(), duration)
+}
+
+/**
+ * @param {string} message
+ * @param {() => void} onConfirm
+ */
+function showConfirm(message, onConfirm) {
+    const container = document.getElementById('toast-container')
+    if (!container) return
+    const toast = document.createElement('div')
+    toast.className = 'toast toast-confirm'
+    const msg = document.createElement('p')
+    msg.style.margin = '0'
+    msg.textContent = message
+    const actions = document.createElement('div')
+    actions.className = 'toast-confirm-actions'
+    const yes = document.createElement('button')
+    yes.className = 'toast-confirm-yes'
+    yes.textContent = 'Delete'
+    const no = document.createElement('button')
+    no.className = 'toast-confirm-no'
+    no.textContent = 'Cancel'
+    actions.appendChild(yes)
+    actions.appendChild(no)
+    toast.appendChild(msg)
+    toast.appendChild(actions)
+    container.appendChild(toast)
+    yes.addEventListener('click', () => { onConfirm(); toast.remove() })
+    no.addEventListener('click', () => toast.remove())
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const webhookUrlForm = document.querySelector("#webhook-url-form")
     const webhookUrlInput = document.querySelector("#webhook-url")
@@ -47,19 +91,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 scrollTo({ top: 0, behavior: "smooth" })
                 if (response.success) {
                     if (response.message === "No recovery needed") {
-                        alert("No unprocessed meetings found.")
+                        showToast("No unprocessed meetings found.", 'info')
                     }
                     else {
-                        alert("Last meeting recovered successfully!")
+                        showToast("Last meeting recovered successfully!", 'success')
                     }
                 }
                 else {
                     const parsedError = /** @type {ErrorObject} */ (response.message)
                     if (parsedError.errorCode === ErrorCode.NO_MEETINGS || parsedError.errorCode === ErrorCode.EMPTY_TRANSCRIPT) {
-                        alert("No unprocessed meetings found.")
+                        showToast("No unprocessed meetings found.", 'info')
                     }
                     else {
-                        alert("Could not recover last meeting.")
+                        showToast("Could not recover last meeting.", 'error')
                         console.error(parsedError.errorMessage)
                     }
                 }
@@ -108,7 +152,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 chrome.storage.sync.set({
                     webhookUrl: webhookUrl
                 }, function () {
-                    alert("Webhook URL saved!")
+                    showToast("Webhook URL cleared.", 'success')
                 })
             }
             else if (webhookUrl && webhookUrlInput.checkValidity()) {
@@ -118,10 +162,10 @@ document.addEventListener("DOMContentLoaded", function () {
                     chrome.storage.sync.set({
                         webhookUrl: webhookUrl
                     }, function () {
-                        alert("Webhook URL saved!")
+                        showToast("Webhook URL saved.", 'success')
                     })
                 }).catch((error) => {
-                    alert("Permission required to use webhooks. You can try again anytime.")
+                    showToast("Permission required. Click Save again to retry.", 'error')
                     console.error("Webhook permission error:", error)
                 })
             }
@@ -329,7 +373,7 @@ function loadMeetings() {
                         chrome.runtime.sendMessage(message, (responseUntyped) => {
                             const response = /** @type {ExtensionResponse} */ (responseUntyped)
                             if (!response.success) {
-                                alert("Could not download transcript")
+                                showToast("Could not download transcript.", 'error')
                                 const parsedError = /** @type {ErrorObject} */ (response.message)
                                 if (typeof parsedError === 'object') {
                                     console.error(parsedError.errorMessage)
@@ -358,7 +402,7 @@ function loadMeetings() {
                                         const response = /** @type {ExtensionResponse} */ (responseUntyped)
                                         loadMeetings()
                                         if (response.success) {
-                                            alert("Posted successfully!")
+                                            showToast("Posted successfully!", 'success')
                                         }
                                         else {
                                             const parsedError = /** @type {ErrorObject} */ (response.message)
@@ -368,24 +412,24 @@ function loadMeetings() {
                                         }
                                     })
                                 }).catch((error) => {
-                                    alert("Fine! No webhooks for you!")
+                                    showToast("Webhook permission required. Configure your URL again to retry.", 'error')
                                     console.error("Webhook permission error:", error)
                                 })
                             }
                             else {
-                                alert("Please provide a webhook URL")
+                                showToast("Please configure a webhook URL first.", 'info')
                             }
                         })
                     })
 
                     // Delete meeting
                     deleteButton.addEventListener("click", function () {
-                        if (confirm("Delete this meeting?")) {
+                        showConfirm(`Delete "${meeting.title || "Google Meet call"}"?`, () => {
                             meetings.splice(i, 1)
                             chrome.storage.local.set({ meetings: meetings }, function () {
-                                console.log("Meeting deleted")
+                                loadMeetings()
                             })
-                        }
+                        })
                     })
                 }
                 const meetingsTableContainer = document.querySelector("#meetings-table-container")
