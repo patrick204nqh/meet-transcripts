@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildTranscriptFilename, buildWebhookBody, getTranscriptString } from './formatters'
+import { buildTranscriptFilename, buildWebhookBody, getChatMessagesString, getTranscriptString } from './formatters'
 import type { Meeting } from '../types'
 
 const base: Meeting = {
@@ -66,5 +66,48 @@ describe('getTranscriptString', () => {
     ])
     expect(result).toContain('Bob')
     expect(result).toContain('Hey')
+  })
+})
+
+describe('getChatMessagesString', () => {
+  it('returns empty string for empty chat messages', () => {
+    expect(getChatMessagesString([])).toBe('')
+  })
+
+  it('formats each message as "Name (timestamp)\\ntext\\n\\n"', () => {
+    const result = getChatMessagesString([
+      { personName: 'Carol', timestamp: '2024-01-01T09:00:00.000Z', text: 'Agreed' },
+    ])
+    expect(result).toContain('Carol')
+    expect(result).toContain('Agreed')
+  })
+
+  it('joins multiple messages', () => {
+    const result = getChatMessagesString([
+      { personName: 'Alice', timestamp: '2024-01-01T09:00:00.000Z', text: 'First' },
+      { personName: 'Bob', timestamp: '2024-01-01T09:01:00.000Z', text: 'Second' },
+    ])
+    expect(result).toContain('Alice')
+    expect(result).toContain('Bob')
+  })
+})
+
+describe('buildWebhookBody — undefined software and title fallback', () => {
+  const bare: Meeting = {
+    ...base,
+    software: undefined as unknown as Meeting['software'],
+    title: undefined,
+  }
+
+  it('simple body — software and title default to empty string', () => {
+    const body = buildWebhookBody(bare, 'simple')
+    expect(body.software).toBe('')
+    expect(body.title).toBe('')
+  })
+
+  it('advanced body — software and title default to empty string', () => {
+    const body = buildWebhookBody(bare, 'advanced')
+    expect(body.software).toBe('')
+    expect(body.title).toBe('')
   })
 })

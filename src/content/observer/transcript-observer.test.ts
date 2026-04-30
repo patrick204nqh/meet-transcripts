@@ -16,7 +16,8 @@ vi.mock('../state-sync', () => ({ persistStateFields: vi.fn() }))
 vi.mock('../ui', () => ({ handleContentError: vi.fn() }))
 
 import { state } from '../state'
-import { transcriptMutationCallback } from './transcript-observer'
+import { handleContentError } from '../ui'
+import { transcriptMutationCallback, insertGapMarker, pushBufferToTranscript } from './transcript-observer'
 
 function makeMutation(personName: string, text: string): MutationRecord {
   // container > blockEl (at index 0 of 3) > [personEl, transcriptEl > textNode]
@@ -106,5 +107,135 @@ describe('transcriptMutationCallback — 30-min restart threshold', () => {
     transcriptMutationCallback([makeMutation('Alice', longText)])
     transcriptMutationCallback([makeMutation('Alice', shrunkText)])
     expect(state.transcript).toHaveLength(1)
+  })
+})
+
+describe('insertGapMarker', () => {
+  beforeEach(() => {
+    state.transcript = []
+  })
+
+  it('appends a gap-marker block with fixed personName and text', () => {
+    insertGapMarker()
+    expect(state.transcript).toHaveLength(1)
+    expect(state.transcript[0].personName).toBe('[meet-transcripts]')
+    expect(state.transcript[0].text).toContain('Captions unavailable')
+  })
+
+  it('records a timestamp close to now', () => {
+    const before = Date.now()
+    insertGapMarker()
+    const ts = new Date(state.transcript[0].timestamp).getTime()
+    expect(ts).toBeGreaterThanOrEqual(before)
+  })
+})
+
+describe('pushBufferToTranscript', () => {
+  beforeEach(() => {
+    state.transcript = []
+    state.personNameBuffer = ''
+    state.transcriptTextBuffer = ''
+    state.timestampBuffer = ''
+    state.userName = 'You'
+  })
+
+  it('flushes the current buffer into transcript', () => {
+    state.personNameBuffer = 'Alice'
+    state.transcriptTextBuffer = 'Flushed text'
+    state.timestampBuffer = '2024-01-01T09:00:00.000Z'
+    pushBufferToTranscript()
+    expect(state.transcript).toHaveLength(1)
+    expect(state.transcript[0].personName).toBe('Alice')
+    expect(state.transcript[0].text).toBe('Flushed text')
+  })
+
+  it('substitutes userName when personNameBuffer is "You"', () => {
+    state.userName = 'Patrick'
+    state.personNameBuffer = 'You'
+    state.transcriptTextBuffer = 'Self speech'
+    state.timestampBuffer = '2024-01-01T09:00:00.000Z'
+    pushBufferToTranscript()
+    expect(state.transcript[0].personName).toBe('Patrick')
+  })
+})
+
+describe('transcriptMutationCallback — "no active transcript" path', () => {
+  beforeEach(() => {
+    state.transcript = []
+    state.personNameBuffer = ''
+    state.transcriptTextBuffer = ''
+    state.timestampBuffer = ''
+  })
+
+  function makeMutationNoPerson(text: string): MutationRecord {
+    // transcriptEl has no previousSibling (no personEl) → currentPersonName is null
+    const textNode = document.createTextNode(text)
+    const transcriptEl = document.createElement('div')
+    transcriptEl.appendChild(textNode)
+    const blockEl = document.createElement('div')
+    blockEl.appendChild(transcriptEl)
+    const container = document.createElement('div')
+    container.appendChild(blockEl)
+    container.appendChild(document.createElement('div'))
+    container.appendChild(document.createElement('div'))
+    return {
+      type: 'characterData',
+      target: textNode,
+      addedNodes: [] as unknown as NodeList,
+      removedNodes: [] as unknown as NodeList,
+      attributeName: null, attributeNamespace: null,
+      nextSibling: null, oldValue: null, previousSibling: null,
+    } as MutationRecord
+  }
+
+  it('clears buffer when personName is absent and buffer was empty', () => {
+    transcriptMutationCallback([makeMutationNoPerson('Orphan text')])
+    expect(state.personNameBuffer).toBe('')
+    expect(state.transcriptTextBuffer).toBe('')
+    expect(state.transcript).toHaveLength(0)
+  })
+
+  it('flushes buffer when personName is absent but buffer has content', () => {
+    state.personNameBuffer = 'Alice'
+    state.transcriptTextBuffer = 'Pending text'
+    state.timestampBuffer = '2024-01-01T09:00:00.000Z'
+    transcriptMutationCallback([makeMutationNoPerson('Orphan text')])
+    expect(state.transcript).toHaveLength(1)
+    expect(state.transcript[0].personName).toBe('Alice')
+    expect(state.personNameBuffer).toBe('')
+    expect(state.transcriptTextBuffer).toBe('')
+  })
+})
+
+describe('transcriptMutationCallback — error catch path', () => {
+  beforeEach(() => {
+    state.transcript = []
+    state.isTranscriptDomErrorCaptured = false
+    state.hasMeetingEnded = false
+    vi.mocked(handleContentError).mockClear()
+  })
+
+  it('sets isTranscriptDomErrorCaptured and calls handleContentError on first error', () => {
+    const badTarget = new Proxy({} as Text, { get() { throw new Error('DOM exploded') } })
+    const errorMutation = { type: 'characterData', target: badTarget } as unknown as MutationRecord
+    transcriptMutationCallback([errorMutation])
+    expect(state.isTranscriptDomErrorCaptured).toBe(true)
+    expect(handleContentError).toHaveBeenCalledWith('005', expect.any(Error))
+  })
+
+  it('does not call handleContentError again after first capture', () => {
+    state.isTranscriptDomErrorCaptured = true
+    const badTarget = new Proxy({} as Text, { get() { throw new Error('Again') } })
+    const errorMutation = { type: 'characterData', target: badTarget } as unknown as MutationRecord
+    transcriptMutationCallback([errorMutation])
+    expect(handleContentError).not.toHaveBeenCalled()
+  })
+
+  it('does not call handleContentError when hasMeetingEnded is true', () => {
+    state.hasMeetingEnded = true
+    const badTarget = new Proxy({} as Text, { get() { throw new Error('After end') } })
+    const errorMutation = { type: 'characterData', target: badTarget } as unknown as MutationRecord
+    transcriptMutationCallback([errorMutation])
+    expect(handleContentError).not.toHaveBeenCalled()
   })
 })
