@@ -41,7 +41,7 @@ C4Container
     Container_Boundary(ext, "Meet Transcripts Extension (MV3)") {
         Container(bg, "Background Service Worker", "background.js", "Central orchestrator: meeting lifecycle, webhook dispatch, file download, storage management")
         Container(cs, "Content Script", "platforms/google-meet.js", "Injected into meet.google.com — observes DOM caption mutations and extracts speaker + text chunks")
-        Container(popup, "Popup UI", "popup.html / popup.js", "Mode toggle (auto / manual), link to meetings page")
+        Container(popup, "Popup UI", "popup.html / popup.js", "Mode toggle (auto / manual), tab-aware status display, link to meetings page")
         Container(meetings, "Meetings UI", "meetings.html / meetings.js", "Meeting history viewer and webhook configuration")
     }
 
@@ -88,7 +88,7 @@ C4Component
     }
 
     Container(cs, "Content Script", "platforms/google-meet.js", "Caption capture")
-    Container(popup, "Popup UI", "popup.html/js", "Mode toggle")
+    Container(popup, "Popup UI", "popup.html/js", "Mode toggle, tab-aware status")
     Container(meetings, "Meetings UI", "meetings.html/js", "History & config")
     ContainerDb(sync, "chrome.storage.sync", "Chrome Storage API", "Settings")
     ContainerDb(local, "chrome.storage.local", "Chrome Storage API", "Transcript data")

@@ -67,6 +67,8 @@ The extension has two modes:
 
 At the end of a meeting the transcript is downloaded as a `.txt` file. Open the extension popup to view the last 10 meetings or configure a webhook.
 
+The popup detects whether your active tab is a Google Meet session and reflects the live status — pulsing blue when you're on a call, dimmed when you're not.
+
 ---
 
 ## Webhook integration

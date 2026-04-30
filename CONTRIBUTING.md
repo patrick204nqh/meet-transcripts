@@ -62,8 +62,11 @@ The UI uses a **glassmorphism** style. Keep new UI consistent with the existing 
 | `--glass-border` | `rgba(255,255,255,0.1)` | Glass card borders |
 | `--text` | `#f1f5f9` | Primary text |
 | `--text-2` | `#94a3b8` | Secondary / muted text |
+| `--text-3` | `#7b8ea5` | Tertiary / footnote text — must stay ≥ 4.5:1 on `#0f172a` (WCAG AA) |
 
 Cards use `backdrop-filter: blur(20–24px)` with a `box-shadow` for depth. Do not introduce new colour values — extend via CSS variables.
+
+User feedback (success, error, info, confirm) is delivered via the `showToast` / `showConfirm` helpers in `meetings.js`. Do not use `alert()` or `confirm()` — they break the visual brand and block the page.
 
 ---
 
