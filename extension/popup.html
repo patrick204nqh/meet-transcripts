@@ -132,6 +132,16 @@
       }
     }
 
+    .status-dot.idle {
+      background: var(--text-3);
+      box-shadow: none;
+      animation: none;
+    }
+
+    .status-bar.idle {
+      color: var(--text-2);
+    }
+
     /* ── Divider ── */
     .divider {
       border: none;
@@ -250,7 +260,7 @@
 
   <div class="card">
     <div class="status-bar">
-      <span class="status-dot"></span>Active on Google Meet
+      <span class="status-dot"></span><span>Active on Google Meet</span>
     </div>
     <div class="radio-item">
       <input type="radio" name="mode" id="auto-mode" />
