@@ -223,6 +223,8 @@ function loadMeetings() {
                     titleDiv.className = "meeting-title"
                     titleDiv.dataset.index = String(i)
                     titleDiv.title = "Rename"
+                    titleDiv.setAttribute("role", "textbox")
+                    titleDiv.setAttribute("aria-label", `Rename meeting title: ${meeting.title || "Google Meet call"}`)
                     titleDiv.textContent = meeting.title || "Google Meet call"
                     tdTitle.appendChild(titleDiv)
                     row.appendChild(tdTitle)
@@ -280,6 +282,7 @@ function loadMeetings() {
                     webhookPostButton.className = "post-button"
                     webhookPostButton.dataset.index = String(i)
                     webhookPostButton.title = meeting.webhookPostStatus === "new" ? "Post webhook" : "Repost webhook"
+                    webhookPostButton.setAttribute("aria-label", webhookPostButton.title)
                     const postImg = document.createElement("img")
                     postImg.src = "./icons/webhook.svg"
                     postImg.alt = ""
