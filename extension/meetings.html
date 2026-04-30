@@ -504,12 +504,12 @@
 
 <body>
 
-    <div style="margin: 0 auto; max-width: 1440px;">
+    <main style="margin: 0 auto; max-width: 1440px;">
         <h1>Meet Transcripts</h1>
 
-        <section id="last-10-meetings">
+        <section id="last-10-meetings" aria-labelledby="meetings-heading">
             <div class="section-header">
-                <h2>Last 10 meetings</h2>
+                <h2 id="meetings-heading">Last 10 meetings</h2>
                 <button id="recover-last-meeting">Recover last meeting</button>
             </div>
             <p class="sub-text" style="margin-bottom: 1rem;">Only the last 10 meetings are stored. Download or post to a webhook to keep older ones.</p>
@@ -532,8 +532,8 @@
             <button id="show-all" style="display: none;">Show all</button>
         </section>
 
-        <section id="webhooks">
-            <h2 style="margin-bottom: 0.25rem;">Webhooks</h2>
+        <section id="webhooks" aria-labelledby="webhooks-heading">
+            <h2 id="webhooks-heading" style="margin-bottom: 0.25rem;">Webhooks</h2>
             <p class="sub-text" style="margin-bottom: 1.25rem;">Connect Meet Transcripts to any tool that accepts a webhook POST.</p>
 
             <div class="grid-container">
@@ -633,7 +633,7 @@
                 </div>
             </div>
         </section>
-    </div>
+    </main>
 
     <script src="meetings.js"></script>
 </body>
