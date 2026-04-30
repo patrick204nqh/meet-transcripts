@@ -41,8 +41,6 @@ async function seedMeetings(page, meetings) {
 test.describe('Meetings page', () => {
   test.beforeEach(async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/meetings.html`);
-    // Seed known-good sync defaults before each test to avoid a race between
-    // background.js onInstalled (which sets defaults) and the page reading storage.
     await page.evaluate(() => new Promise(resolve =>
       chrome.storage.sync.set({
         autoPostWebhookAfterMeeting: true,
@@ -54,15 +52,13 @@ test.describe('Meetings page', () => {
     await page.reload();
   });
 
-  test('renders the page title', async ({ page }) => {
+  test('renders expected page structure', async ({ page }) => {
     await expect(page.locator('h1')).toHaveText('Meet Transcripts');
-  });
-
-  test('shows the Last 10 meetings section', async ({ page }) => {
     await expect(page.locator('#last-10-meetings h2')).toHaveText('Last 10 meetings');
-  });
-
-  test('shows the meetings table with correct column headers', async ({ page }) => {
+    await expect(page.locator('#recover-last-meeting')).toBeVisible();
+    await expect(page.locator('#webhooks h2')).toHaveText('Webhooks');
+    await expect(page.locator('#webhook-url')).toBeVisible();
+    await expect(page.locator('#save-webhook')).toBeVisible();
     const headers = page.locator('table thead th');
     await expect(headers.nth(0)).toHaveText('Meeting title');
     await expect(headers.nth(1)).toHaveText('Meeting software');
@@ -70,46 +66,14 @@ test.describe('Meetings page', () => {
     await expect(headers.nth(3)).toHaveText('Webhook status');
   });
 
-  test('shows the Recover last meeting button', async ({ page }) => {
-    await expect(page.locator('#recover-last-meeting')).toBeVisible();
+  test('shows empty state message when no meetings are stored', async ({ page }) => {
+    await expect(page.locator('#meetings-table')).toContainText('Your next meeting will appear here');
   });
 
-  test('shows the webhooks section heading', async ({ page }) => {
-    await expect(page.locator('#webhooks h2')).toHaveText('Webhooks');
-  });
-
-  test('shows the webhook configuration form', async ({ page }) => {
-    await expect(page.locator('#webhooks')).toBeVisible();
-    await expect(page.locator('#webhook-url')).toBeVisible();
-    await expect(page.locator('#save-webhook')).toBeVisible();
-  });
-
-  test('auto-post webhook checkbox is checked by default', async ({ page }) => {
+  test('webhook configuration defaults — auto-post checked, simple body selected', async ({ page }) => {
     await expect(page.locator('#auto-post-webhook')).toBeChecked();
-  });
-
-  test('shows Simple and Advanced webhook body radio options', async ({ page }) => {
-    await expect(page.locator('#simple-webhook-body')).toBeVisible();
-    await expect(page.locator('label[for="simple-webhook-body"]')).toContainText('Simple webhook body');
-
-    await expect(page.locator('#advanced-webhook-body')).toBeVisible();
-    await expect(page.locator('label[for="advanced-webhook-body"]')).toContainText('Advanced webhook body');
-  });
-
-  test('simple webhook body is selected by default', async ({ page }) => {
     await expect(page.locator('#simple-webhook-body')).toBeChecked();
     await expect(page.locator('#advanced-webhook-body')).not.toBeChecked();
-  });
-
-  test('can enter a webhook URL', async ({ page }) => {
-    const input = page.locator('#webhook-url');
-    await input.fill('https://hooks.example.com/test');
-    await expect(input).toHaveValue('https://hooks.example.com/test');
-  });
-
-  test('auto-download checkbox is visible when auto-post webhook is enabled', async ({ page }) => {
-    // auto-post-webhook is checked by default, which makes auto-download-file visible
-    await expect(page.locator('#auto-post-webhook')).toBeChecked();
     await expect(page.locator('#auto-download-file')).toBeVisible();
   });
 
@@ -123,59 +87,47 @@ test.describe('Meetings page', () => {
     await expect(page.locator('#advanced-webhook-body')).not.toBeChecked();
   });
 
-  test('shows empty state message when no meetings are stored', async ({ page }) => {
-    await expect(page.locator('#meetings-table')).toContainText('Your next meeting will appear here');
+  test('webhook URL persists after save and page reload', async ({ page }) => {
+    const url = 'https://hooks.example.com/my-webhook';
+    await page.locator('#webhook-url').fill(url);
+    await page.locator('#save-webhook').click();
+    await page.reload();
+    await expect(page.locator('#webhook-url')).toHaveValue(url);
   });
 
-  test('renders a row for each seeded meeting', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+  test('renders a row for each seeded meeting with correct titles', async ({ page }) => {
     await seedMeetings(page, MOCK_MEETINGS);
     await expect(page.locator('#meetings-table tr')).toHaveCount(MOCK_MEETINGS.length);
-  });
-
-  test('displays meeting titles in the table', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
-    await seedMeetings(page, MOCK_MEETINGS);
     await expect(page.locator('#meetings-table')).toContainText('Q2 Product Review');
     await expect(page.locator('#meetings-table')).toContainText('1:1 with Manager');
     await expect(page.locator('#meetings-table')).toContainText('Design Review');
   });
 
-  test('shows correct webhook status badges', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+  test('shows correct webhook status badges for all three statuses', async ({ page }) => {
     await seedMeetings(page, MOCK_MEETINGS);
     await expect(page.locator('.status-success').first()).toBeVisible();
     await expect(page.locator('.status-failed').first()).toBeVisible();
     await expect(page.locator('.status-new').first()).toBeVisible();
   });
 
-  test('renders meeting title as plain text, not HTML', async ({ page, extensionId }) => {
+  test('renders meeting title as plain text, not HTML (XSS guard)', async ({ page }) => {
     const xssPayload = '<img src=x onerror=window.__xss=1>';
-    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
-    await seedMeetings(page, [{
-      ...MOCK_MEETINGS[0],
-      title: xssPayload,
-    }]);
-    // Title must appear as literal text, not trigger the onerror handler
+    await seedMeetings(page, [{ ...MOCK_MEETINGS[0], title: xssPayload }]);
     await expect(page.locator('.meeting-title').first()).toHaveText(xssPayload);
     const xssTriggered = await page.evaluate(() => window.__xss);
     expect(xssTriggered).toBeUndefined();
   });
 
-  test('delete button removes the meeting row after confirmation', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+  test('delete button removes the meeting row after confirmation', async ({ page }) => {
     await seedMeetings(page, MOCK_MEETINGS);
     await expect(page.locator('#meetings-table tr')).toHaveCount(MOCK_MEETINGS.length);
-
     page.once('dialog', dialog => dialog.accept());
     await page.locator('.delete-button').first().click();
     await expect(page.locator('#meetings-table tr')).toHaveCount(MOCK_MEETINGS.length - 1);
   });
 
-  test('download button sends download_transcript_at_index message', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+  test('download button sends download_transcript_at_index message', async ({ page }) => {
     await seedMeetings(page, MOCK_MEETINGS);
-
     const sentMessages = await page.evaluate(() => {
       const msgs = [];
       const original = chrome.runtime.sendMessage.bind(chrome.runtime);
@@ -183,7 +135,6 @@ test.describe('Meetings page', () => {
       window.__sentMessages = msgs;
       return msgs;
     });
-
     await page.locator('.download-button').first().click();
     const messages = await page.evaluate(() => window.__sentMessages);
     expect(messages.some(m => m.type === 'download_transcript_at_index')).toBe(true);
