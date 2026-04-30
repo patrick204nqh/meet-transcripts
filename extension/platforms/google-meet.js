@@ -27,6 +27,7 @@
 		isChatMessagesDomErrorCaptured: false,
 		hasMeetingStarted: false,
 		hasMeetingEnded: false,
+		pipObserverAttached: false,
 		extensionStatusJSON: null
 	};
 	//#endregion
@@ -274,6 +275,53 @@
 		});
 	}
 	//#endregion
+	//#region src/content/pip-capture.ts
+	var PIP_CAPTION_SELECTOR = "div[role=\"region\"][tabindex=\"0\"]";
+	var pipObserver;
+	function attachPipObserver(pipDoc) {
+		if (state.pipObserverAttached) return;
+		const findAndAttach = () => {
+			const captionEl = pipDoc.querySelector(PIP_CAPTION_SELECTOR);
+			if (!captionEl) return false;
+			pipObserver = new MutationObserver(transcriptMutationCallback);
+			pipObserver.observe(captionEl, mutationConfig);
+			state.pipObserverAttached = true;
+			state.transcriptTargetBuffer = captionEl;
+			console.log("PiP entered — attaching caption observer");
+			insertGapMarker();
+			return true;
+		};
+		if (findAndAttach()) return;
+		const bootstrapObserver = new MutationObserver(() => {
+			if (findAndAttach()) bootstrapObserver.disconnect();
+		});
+		bootstrapObserver.observe(pipDoc.body, {
+			childList: true,
+			subtree: true
+		});
+	}
+	function detachPipObserver() {
+		pipObserver?.disconnect();
+		pipObserver = void 0;
+		state.pipObserverAttached = false;
+	}
+	function initializePipCapture() {
+		const dpip = window.documentPictureInPicture;
+		if (!dpip) {
+			console.log("Document Picture-in-Picture not supported — PiP capture disabled");
+			return;
+		}
+		dpip.addEventListener("enter", (event) => {
+			if (state.hasMeetingEnded) return;
+			attachPipObserver(event.window.document);
+		});
+		dpip.addEventListener("leave", () => {
+			console.log("PiP left — detaching caption observer");
+			detachPipObserver();
+			insertGapMarker();
+		});
+	}
+	//#endregion
 	//#region src/content/observer/chat-observer.ts
 	function pushUniqueChatBlock(chatBlock) {
 		if (!state.chatMessages.some((item) => item.personName === chatBlock.personName && item.text === chatBlock.text)) {
@@ -442,6 +490,7 @@
 				transcriptObserver?.disconnect();
 				chatMessagesObserver?.disconnect();
 				captionWatchdog?.disconnect();
+				detachPipObserver();
 				document.removeEventListener("visibilitychange", onVisibilityChange);
 				window.removeEventListener("pagehide", handlePageHide);
 				if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") pushBufferToTranscript();
@@ -490,6 +539,7 @@
 				}, 100);
 			});
 			meetingRoutines(2);
+			initializePipCapture();
 		} else showNotification(state.extensionStatusJSON);
 	});
 	//#endregion

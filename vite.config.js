@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
       minify: false,
       rollupOptions: {
         output: {
-          entryFileNames: 'google-meet.js',
+          entryFileNames: 'platforms/google-meet.js',
         },
       },
     },
