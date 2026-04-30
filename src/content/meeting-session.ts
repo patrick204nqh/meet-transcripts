@@ -4,6 +4,7 @@ import { mutationConfig } from './constants'
 import { selectElements, waitForElement, showNotification, handleContentError } from './ui'
 import { persistStateFields, persistStateAndSignalEnd } from './state-sync'
 import { transcriptMutationCallback, pushBufferToTranscript, insertGapMarker } from './observer/transcript-observer'
+import { detachPipObserver } from './pip-capture'
 import { chatMessagesMutationCallback } from './observer/chat-observer'
 
 export function checkExtensionStatus(): Promise<string> {
@@ -165,6 +166,7 @@ export function meetingRoutines(uiType: number): void {
       transcriptObserver?.disconnect()
       chatMessagesObserver?.disconnect()
       captionWatchdog?.disconnect()
+      detachPipObserver()
       document.removeEventListener("visibilitychange", onVisibilityChange)
       window.removeEventListener("pagehide", handlePageHide)
 
