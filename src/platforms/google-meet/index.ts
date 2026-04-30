@@ -1,6 +1,7 @@
 import type { ErrorObject } from '../../types'
 import { ErrorCode } from '../../shared/errors'
-import { state } from '../../content/state'
+import { createSessionState } from '../../content/state'
+const state = createSessionState()
 import { waitForElement, showNotification } from '../../content/ui'
 import { persistStateFields } from '../../content/state-sync'
 import { recoverLastMeeting } from '../../shared/messages'
