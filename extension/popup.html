@@ -1,6 +1,6 @@
 <!-- popup.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
   <title>Meet Transcripts</title>
@@ -12,7 +12,7 @@
       --brand-border:  rgba(56, 189, 248, 0.3);
       --text:          #f1f5f9;
       --text-2:        #94a3b8;
-      --text-3:        #475569;
+      --text-3:        #7b8ea5;
       --glass:         rgba(255, 255, 255, 0.05);
       --glass-hover:   rgba(255, 255, 255, 0.09);
       --glass-border:  rgba(255, 255, 255, 0.12);
@@ -123,6 +123,23 @@
     @keyframes pulse {
       0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--brand), 0 0 16px rgba(56, 189, 248, 0.4); }
       50%       { opacity: 0.7; box-shadow: 0 0 4px var(--brand), 0 0 8px rgba(56, 189, 248, 0.2); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .status-dot {
+        animation: none;
+        opacity: 1;
+        box-shadow: 0 0 8px var(--brand), 0 0 16px rgba(56, 189, 248, 0.4);
+      }
+    }
+
+    .status-dot.idle {
+      background: var(--text-3);
+      box-shadow: none;
+      animation: none;
+    }
+
+    .status-bar.idle {
+      color: var(--text-2);
     }
 
     .status-dot.idle {

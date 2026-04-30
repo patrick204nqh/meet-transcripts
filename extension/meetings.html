@@ -13,7 +13,7 @@
             --brand-border:  rgba(56, 189, 248, 0.3);
             --text:          #f1f5f9;
             --text-2:        #94a3b8;
-            --text-3:        #475569;
+            --text-3:        #7b8ea5;
             --glass:         rgba(255, 255, 255, 0.05);
             --glass-hover:   rgba(255, 255, 255, 0.08);
             --glass-border:  rgba(255, 255, 255, 0.1);
@@ -499,17 +499,101 @@
             font-size: 0.875rem;
             color: var(--text-2);
         }
+
+        /* ── Toasts ── */
+        #toast-container {
+            position: fixed;
+            top: 1.25rem;
+            right: 1.25rem;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            pointer-events: none;
+        }
+
+        .toast {
+            padding: 0.75rem 1rem;
+            border-radius: var(--r);
+            font-size: 0.875rem;
+            font-weight: 500;
+            max-width: 320px;
+            pointer-events: auto;
+            animation: toast-in 0.2s ease;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateX(0.75rem); }
+            to   { opacity: 1; transform: none; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .toast { animation: none; }
+        }
+
+        .toast-success {
+            background: var(--success-bg);
+            color: var(--success);
+            border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+
+        .toast-error {
+            background: var(--error-bg);
+            color: var(--error);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+        }
+
+        .toast-info {
+            background: var(--brand-dim);
+            color: var(--brand);
+            border: 1px solid var(--brand-border);
+        }
+
+        .toast-confirm {
+            background: var(--glass);
+            color: var(--text);
+            border: 1px solid var(--glass-border);
+        }
+
+        .toast-confirm-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.625rem;
+        }
+
+        .toast-confirm-actions button {
+            padding: 0.3rem 0.75rem;
+            border-radius: var(--r-sm);
+            font-size: 0.8125rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .toast-confirm-yes {
+            background: var(--error);
+            color: #0d0d1a;
+            border: none;
+        }
+
+        .toast-confirm-no {
+            background: var(--glass);
+            color: var(--text-2);
+            border: 1px solid var(--glass-border);
+        }
     </style>
 </head>
 
 <body>
 
-    <div style="margin: 0 auto; max-width: 1440px;">
+    <main style="margin: 0 auto; max-width: 1440px;">
         <h1>Meet Transcripts</h1>
 
-        <section id="last-10-meetings">
+        <section id="last-10-meetings" aria-labelledby="meetings-heading">
             <div class="section-header">
-                <h2>Last 10 meetings</h2>
+                <h2 id="meetings-heading">Last 10 meetings</h2>
                 <button id="recover-last-meeting">Recover last meeting</button>
             </div>
             <p class="sub-text" style="margin-bottom: 1rem;">Only the last 10 meetings are stored. Download or post to a webhook to keep older ones.</p>
@@ -532,8 +616,8 @@
             <button id="show-all" style="display: none;">Show all</button>
         </section>
 
-        <section id="webhooks">
-            <h2 style="margin-bottom: 0.25rem;">Webhooks</h2>
+        <section id="webhooks" aria-labelledby="webhooks-heading">
+            <h2 id="webhooks-heading" style="margin-bottom: 0.25rem;">Webhooks</h2>
             <p class="sub-text" style="margin-bottom: 1.25rem;">Connect Meet Transcripts to any tool that accepts a webhook POST.</p>
 
             <div class="grid-container">
@@ -633,8 +717,9 @@
                 </div>
             </div>
         </section>
-    </div>
+    </main>
 
+    <div id="toast-container" role="region" aria-live="polite" aria-label="Notifications"></div>
     <script src="meetings.js"></script>
 </body>
 

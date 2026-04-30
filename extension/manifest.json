@@ -21,7 +21,8 @@
   "permissions": [
     "storage",
     "downloads",
-    "scripting"
+    "scripting",
+    "activeTab"
   ],
   "host_permissions": [
     "https://meet.google.com/*"

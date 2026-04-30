@@ -72,7 +72,7 @@ test.describe('Security', () => {
   });
 
   test('manifest declares only expected permissions', () => {
-    const allowed = ['storage', 'downloads', 'scripting', 'notifications'];
+    const allowed = ['storage', 'downloads', 'scripting', 'notifications', 'activeTab'];
     for (const perm of manifest.permissions ?? []) {
       expect(allowed, `unexpected permission declared: ${perm}`).toContain(perm);
     }
