@@ -1,6 +1,7 @@
 import type { ExtensionMessage, ExtensionResponse } from '../types'
 import type { IBrowserRuntime } from '../browser/types'
 import { ChromeRuntime } from '../browser/chrome'
+import { msg } from './protocol'
 
 export function createMessenger(runtime: IBrowserRuntime) {
   return {
@@ -17,7 +18,7 @@ export function sendMessage(msg: ExtensionMessage): Promise<ExtensionResponse> {
 }
 
 export function recoverLastMeeting(): Promise<string> {
-  return sendMessage({ type: "recover_last_meeting" }).then((response) => {
+  return sendMessage(msg({ type: "recover_last_meeting" })).then((response) => {
     if (response.success) return (response.data as unknown as string) ?? "Last meeting recovered"
     return Promise.reject(response.error)
   })

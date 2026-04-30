@@ -1,6 +1,7 @@
 import type { ExtensionMessage, ExtensionResponse, ErrorObject, DebugState } from '../types'
 import { ErrorCode, ExtensionError } from '../shared/errors'
 import { log } from '../shared/logger'
+import { MIN_SUPPORTED_VERSION, PROTOCOL_VERSION } from '../shared/protocol'
 import { StorageLocal } from '../shared/storage-repo'
 import { MeetingService } from '../services/meeting'
 import { DownloadService } from '../services/download'
@@ -22,6 +23,14 @@ const isValidIndex = (i: unknown): i is number => typeof i === "number" && i >= 
 
 chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return
+  const versionedMsg = raw as { v?: number; type?: string }
+  if (!versionedMsg.v || versionedMsg.v < MIN_SUPPORTED_VERSION) {
+    sendResponse({
+      success: false,
+      error: { errorCode: ErrorCode.VERSION_MISMATCH, errorMessage: `Protocol version mismatch. Expected v${PROTOCOL_VERSION}, got v${versionedMsg.v ?? 0}. Please refresh the Meet tab.` },
+    })
+    return true
+  }
   const msg = raw as ExtensionMessage
   log.debug("message received:", msg.type)
 

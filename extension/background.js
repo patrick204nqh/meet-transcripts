@@ -487,6 +487,17 @@
 	var isValidIndex = (i) => typeof i === "number" && i >= 0;
 	chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
 		if (sender.id !== chrome.runtime.id) return;
+		const versionedMsg = raw;
+		if (!versionedMsg.v || versionedMsg.v < 1) {
+			sendResponse({
+				success: false,
+				error: {
+					errorCode: ErrorCode.VERSION_MISMATCH,
+					errorMessage: `Protocol version mismatch. Expected v1, got v${versionedMsg.v ?? 0}. Please refresh the Meet tab.`
+				}
+			});
+			return true;
+		}
 		const msg = raw;
 		log.debug("message received:", msg.type);
 		if (msg.type === "new_meeting_started") {

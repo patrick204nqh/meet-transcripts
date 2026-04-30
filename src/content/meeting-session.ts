@@ -1,4 +1,5 @@
-import type { ExtensionMessage, MeetingEndReason } from '../types'
+import type { MeetingEndReason } from '../types'
+import { msg } from '../shared/protocol'
 import { state } from './state'
 import { log } from '../shared/logger'
 import { mutationConfig } from './constants'
@@ -56,8 +57,7 @@ export function meetingRoutines(uiType: number): void {
 
   waitForElement(meetingEndIconData.selector, meetingEndIconData.text).then(() => {
     log.info("Meeting started")
-    const message: ExtensionMessage = { type: "new_meeting_started" }
-    chrome.runtime.sendMessage(message, () => { })
+    chrome.runtime.sendMessage(msg({ type: "new_meeting_started" }), () => { })
     state.hasMeetingStarted = true
     state.startTimestamp = new Date().toISOString()
     persistStateFields(["startTimestamp"])

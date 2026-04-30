@@ -1,5 +1,6 @@
 import type { MeetingEndReason } from '../types'
 import { ErrorCode } from '../shared/errors'
+import { msg } from '../shared/protocol'
 import { state } from './state'
 import { meetingSoftware as meetingSoftwareConst } from './constants'
 import { pulseStatus } from './ui'
@@ -29,11 +30,11 @@ export async function persistStateAndSignalEnd(keys: StorageKey[], reason: Meeti
   // can call sendResponse — fire-and-forget to avoid an "Unchecked runtime.lastError" warning.
   // The background's tabs.onUpdated/onRemoved listeners finalize the meeting as a fallback.
   if (reason === "page_unload") {
-    chrome.runtime.sendMessage({ type: "meeting_ended", reason }).catch(() => {})
+    chrome.runtime.sendMessage(msg({ type: "meeting_ended", reason })).catch(() => {})
     return
   }
 
-  const response = await sendMessage({ type: "meeting_ended", reason })
+  const response = await sendMessage(msg({ type: "meeting_ended", reason }))
   if (!response.success && response.error.errorCode === ErrorCode.MEETING_NOT_FOUND) {
     console.error(response.error.errorMessage)
   }

@@ -11,7 +11,7 @@ export function makeChromeMock(overrides: Record<string, unknown> = {}) {
             keys.map((k) => [k, storage[k]]).filter(([, v]) => v !== undefined)
           )
         ),
-        set: vi.fn(async (data: Record<string, unknown>) => Object.assign(storage, data)),
+        set: vi.fn(async (data: Record<string, unknown>) => { Object.assign(storage, data) }),
       },
       sync: {
         get: vi.fn(async (keys: string[]) =>
@@ -19,7 +19,7 @@ export function makeChromeMock(overrides: Record<string, unknown> = {}) {
             keys.map((k) => [k, storage[k]]).filter(([, v]) => v !== undefined)
           )
         ),
-        set: vi.fn(async (data: Record<string, unknown>) => Object.assign(storage, data)),
+        set: vi.fn(async (data: Record<string, unknown>) => { Object.assign(storage, data) }),
       },
     },
     runtime: {

@@ -176,6 +176,12 @@
 		log.error(`Error ${code}:`, err);
 		if (notify) showNotification(bugStatusJson);
 	}
+	function msg(m) {
+		return {
+			...m,
+			v: 1
+		};
+	}
 	//#endregion
 	//#region src/browser/chrome.ts
 	var ChromeRuntime = {
@@ -203,7 +209,7 @@
 		return defaultMessenger.sendMessage(msg);
 	}
 	function recoverLastMeeting() {
-		return sendMessage({ type: "recover_last_meeting" }).then((response) => {
+		return sendMessage(msg({ type: "recover_last_meeting" })).then((response) => {
 			if (response.success) return response.data ?? "Last meeting recovered";
 			return Promise.reject(response.error);
 		});
@@ -226,16 +232,16 @@
 		await chrome.storage.local.set(buildStorageObject(keys));
 		pulseStatus();
 		if (reason === "page_unload") {
-			chrome.runtime.sendMessage({
+			chrome.runtime.sendMessage(msg({
 				type: "meeting_ended",
 				reason
-			}).catch(() => {});
+			})).catch(() => {});
 			return;
 		}
-		const response = await sendMessage({
+		const response = await sendMessage(msg({
 			type: "meeting_ended",
 			reason
-		});
+		}));
 		if (!response.success && response.error.errorCode === ErrorCode.MEETING_NOT_FOUND) console.error(response.error.errorMessage);
 	}
 	//#endregion
@@ -427,7 +433,7 @@
 		}
 		waitForElement(meetingEndIconData.selector, meetingEndIconData.text).then(() => {
 			log.info("Meeting started");
-			chrome.runtime.sendMessage({ type: "new_meeting_started" }, () => {});
+			chrome.runtime.sendMessage(msg({ type: "new_meeting_started" }), () => {});
 			state.hasMeetingStarted = true;
 			state.startTimestamp = (/* @__PURE__ */ new Date()).toISOString();
 			persistStateFields(["startTimestamp"]);
