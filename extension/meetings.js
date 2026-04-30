@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
         recoverLastMeetingButton.addEventListener("click", function () {
             /** @type {ExtensionMessage} */
             const message = {
-                v: 1,
+                v: 1, // keep in sync with PROTOCOL_VERSION in src/shared/protocol.ts
                 type: "recover_last_meeting",
             }
             chrome.runtime.sendMessage(message, function (responseUntyped) {
@@ -319,7 +319,7 @@ function loadMeetings() {
                     downloadButton.addEventListener("click", function () {
                         /** @type {ExtensionMessage} */
                         const message = {
-                            v: 1,
+                            v: 1, // keep in sync with PROTOCOL_VERSION in src/shared/protocol.ts
                             type: "download_transcript_at_index",
                             index: i
                         }
@@ -347,7 +347,7 @@ function loadMeetings() {
 
                                     /** @type {ExtensionMessage} */
                                     const message = {
-                                        v: 1,
+                                        v: 1, // keep in sync with PROTOCOL_VERSION in src/shared/protocol.ts
                                         type: "post_webhook_at_index",
                                         index: i
                                     }
