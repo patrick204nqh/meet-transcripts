@@ -121,8 +121,8 @@ test.describe('Meetings page', () => {
   test('delete button removes the meeting row after confirmation', async ({ page }) => {
     await seedMeetings(page, MOCK_MEETINGS);
     await expect(page.locator('#meetings-table tr')).toHaveCount(MOCK_MEETINGS.length);
-    page.once('dialog', dialog => dialog.accept());
     await page.locator('.delete-button').first().click();
+    await page.locator('.toast-confirm-yes').click();
     await expect(page.locator('#meetings-table tr')).toHaveCount(MOCK_MEETINGS.length - 1);
   });
 

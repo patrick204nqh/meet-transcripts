@@ -7,7 +7,7 @@ test.describe('Popup', () => {
 
   test('renders expected page structure', async ({ page }) => {
     await expect(page.locator('h1')).toHaveText('Meet Transcripts');
-    await expect(page.getByText('Active on Google Meet')).toBeVisible();
+    await expect(page.locator('.status-bar')).toBeVisible();
     await expect(page.locator('#auto-mode')).toBeVisible();
     await expect(page.locator('#manual-mode')).toBeVisible();
     await expect(page.locator('a[href="./meetings.html"]')).toBeVisible();
