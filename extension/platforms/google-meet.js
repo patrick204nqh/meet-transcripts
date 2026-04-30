@@ -184,6 +184,12 @@
 	}
 	//#endregion
 	//#region src/browser/chrome.ts
+	var ChromeStorage = {
+		localGet: (keys) => chrome.storage.local.get(keys),
+		localSet: (data) => chrome.storage.local.set(data),
+		syncGet: (keys) => chrome.storage.sync.get(keys),
+		syncSet: (data) => chrome.storage.sync.set(data)
+	};
 	var ChromeRuntime = {
 		get id() {
 			return chrome.runtime.id;
@@ -389,7 +395,219 @@
 		}
 	}
 	//#endregion
-	//#region src/content/meeting-session.ts
+	//#region src/content/core/observer-manager.ts
+	var ObserverManager = class {
+		constructor(state, captionContainerSelector) {
+			this.state = state;
+			this.captionContainerSelector = captionContainerSelector;
+			this.isReattaching = false;
+		}
+		attachTranscript(node) {
+			this.transcriptObserver = new MutationObserver(transcriptMutationCallback);
+			this.transcriptObserver.observe(node, mutationConfig);
+			this.state.transcriptTargetBuffer = node;
+		}
+		attachChat(node) {
+			this.chatObserver = new MutationObserver(chatMessagesMutationCallback);
+			this.chatObserver.observe(node, mutationConfig);
+		}
+		attachWatchdog() {
+			this.captionWatchdog = new MutationObserver(() => {
+				if (this.state.hasMeetingEnded || this.isReattaching) return;
+				if (this.state.transcriptTargetBuffer && !this.state.transcriptTargetBuffer.isConnected) {
+					const captionEl = document.querySelector(this.captionContainerSelector);
+					if (!captionEl) return;
+					this.isReattaching = true;
+					this.transcriptObserver?.disconnect();
+					this.attachTranscript(captionEl);
+					insertGapMarker();
+					this.isReattaching = false;
+				}
+			});
+			this.captionWatchdog.observe(document.body, {
+				childList: true,
+				subtree: true
+			});
+		}
+		reattachTranscriptIfDisconnected() {
+			if (this.state.hasMeetingEnded || !this.state.hasMeetingStarted) return;
+			if (document.hidden) return;
+			if (this.state.transcriptTargetBuffer?.isConnected || this.isReattaching) return;
+			const captionEl = document.querySelector(this.captionContainerSelector);
+			if (!captionEl) return;
+			this.isReattaching = true;
+			this.transcriptObserver?.disconnect();
+			this.attachTranscript(captionEl);
+			insertGapMarker();
+			this.isReattaching = false;
+		}
+		detach() {
+			log.info("Detaching all observers");
+			this.transcriptObserver?.disconnect();
+			this.chatObserver?.disconnect();
+			this.captionWatchdog?.disconnect();
+		}
+	};
+	//#endregion
+	//#region src/content/core/meeting-session.ts
+	var MeetingSession = class {
+		constructor(adapter, state, _storage) {
+			this.adapter = adapter;
+			this.state = state;
+			this._storage = _storage;
+			this.observerManager = new ObserverManager(state, adapter.captionContainerSelector);
+			this.handlePageHide = () => this.end("page_unload");
+			this.handleVisibilityChange = () => this.observerManager.reattachTranscriptIfDisconnected();
+		}
+		async start() {
+			await this.adapter.waitForMeetingStart();
+			log.info("Meeting started");
+			chrome.runtime.sendMessage(msg({ type: "new_meeting_started" }), () => {});
+			this.state.hasMeetingStarted = true;
+			this.state.startTimestamp = (/* @__PURE__ */ new Date()).toISOString();
+			persistStateFields(["startTimestamp"]);
+			this.captureTitle();
+			document.addEventListener("visibilitychange", this.handleVisibilityChange);
+			window.addEventListener("pagehide", this.handlePageHide);
+			this.wireEndButton();
+			await Promise.allSettled([this.setupTranscript(), this.setupChat()]);
+		}
+		captureTitle() {
+			this.adapter.waitForTitleElement().then((titleEl) => {
+				titleEl.setAttribute("contenteditable", "true");
+				titleEl.title = "Edit meeting title for meet-transcripts";
+				titleEl.style.cssText = "text-decoration: underline white; text-underline-offset: 4px;";
+				const onInput = () => {
+					this.state.title = titleEl.innerText;
+					persistStateFields(["title"]);
+				};
+				titleEl.addEventListener("input", onInput);
+				setTimeout(() => {
+					onInput();
+					if (location.pathname === `/${titleEl.innerText}`) showNotification({
+						status: 200,
+						message: "<b>Give this meeting a title?</b><br/>Edit the underlined text in the bottom left corner"
+					});
+				}, 7e3);
+			});
+		}
+		async setupTranscript() {
+			try {
+				const captionsReady = await this.adapter.waitForCaptionsReady();
+				chrome.storage.sync.get(["operationMode"], (result) => {
+					if (result.operationMode === "manual") log.info("Manual mode — leaving captions off");
+					else this.adapter.enableCaptions(captionsReady);
+				});
+				const captionNode = await waitForElement(this.adapter.captionContainerSelector);
+				if (!captionNode) throw new Error("Caption container not found in DOM");
+				this.observerManager.attachTranscript(captionNode);
+				this.observerManager.attachWatchdog();
+				chrome.storage.sync.get(["operationMode"], (result) => {
+					if (result.operationMode === "manual") showNotification({
+						status: 400,
+						message: "<strong>meet-transcripts is not running</strong> <br /> Turn on captions using the CC icon, if needed"
+					});
+					else showNotification(this.state.extensionStatusJSON);
+				});
+			} catch (err) {
+				this.state.isTranscriptDomErrorCaptured = true;
+				handleContentError("001", err);
+			}
+		}
+		async setupChat() {
+			try {
+				const chatContainer = await this.adapter.waitForChatContainer();
+				this.adapter.openAndCloseChat(chatContainer);
+				const chatLiveRegion = await waitForElement(`div[aria-live="polite"].Ge9Kpc`);
+				if (!chatLiveRegion) throw new Error("Chat live region not found");
+				this.observerManager.attachChat(chatLiveRegion);
+			} catch (err) {
+				this.state.isChatMessagesDomErrorCaptured = true;
+				handleContentError("003", err);
+			}
+		}
+		wireEndButton() {
+			try {
+				const clickTarget = Array.from(document.querySelectorAll(".google-symbols")).find((el) => el.textContent === "call_end")?.parentElement?.parentElement;
+				if (!clickTarget) throw new Error("Call end button not found in DOM");
+				clickTarget.addEventListener("click", () => this.end("user_click"));
+			} catch (err) {
+				handleContentError("004", err);
+			}
+		}
+		end(reason) {
+			if (this.state.hasMeetingEnded) return;
+			this.state.hasMeetingEnded = true;
+			this.observerManager.detach();
+			detachPipObserver();
+			document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+			window.removeEventListener("pagehide", this.handlePageHide);
+			if (this.state.personNameBuffer !== "" && this.state.transcriptTextBuffer !== "") pushBufferToTranscript();
+			persistStateAndSignalEnd(["transcript", "chatMessages"], reason).catch(console.error);
+		}
+	};
+	//#endregion
+	//#region src/platforms/google-meet/adapter.ts
+	var MEETING_END_SELECTOR = ".google-symbols";
+	var MEETING_END_TEXT = "call_end";
+	var CAPTIONS_SELECTOR = ".google-symbols";
+	var CAPTIONS_TEXT = "closed_caption_off";
+	var CAPTION_CONTAINER_SELECTOR = "div[role=\"region\"][tabindex=\"0\"]";
+	var USERNAME_SELECTOR = ".awLEm";
+	var TITLE_SELECTOR = ".u6vdEc";
+	var CHAT_SELECTOR = ".google-symbols";
+	var CHAT_TEXT = "chat";
+	var CHAT_LIVE_REGION = `div[aria-live="polite"].Ge9Kpc`;
+	var GoogleMeetAdapter = {
+		name: "Google Meet",
+		urlMatches: ["https://meet.google.com/*"],
+		urlExcludeMatches: ["https://meet.google.com/", "https://meet.google.com/landing"],
+		captionContainerSelector: CAPTION_CONTAINER_SELECTOR,
+		userNameSelector: USERNAME_SELECTOR,
+		waitForMeetingStart: () => waitForElement(MEETING_END_SELECTOR, MEETING_END_TEXT).then((el) => el),
+		waitForCaptionsReady: () => waitForElement(CAPTIONS_SELECTOR, CAPTIONS_TEXT).then((el) => el),
+		waitForChatContainer: () => waitForElement(CHAT_SELECTOR, CHAT_TEXT).then(() => {
+			selectElements(CHAT_SELECTOR, CHAT_TEXT)[0]?.click();
+			return waitForElement(CHAT_LIVE_REGION).then((el) => el);
+		}),
+		enableCaptions: (captionsElement) => {
+			captionsElement.click();
+		},
+		openAndCloseChat: (chatElement) => {
+			chatElement.click();
+		},
+		waitForTitleElement: () => waitForElement(TITLE_SELECTOR).then((el) => el),
+		parseTranscriptMutation(mutation, _currentUser) {
+			if (mutation.type !== "characterData") return null;
+			const mutationTargetElement = mutation.target.parentElement;
+			const transcriptUIBlocks = [...mutationTargetElement?.parentElement?.parentElement?.children ?? []];
+			if (!(transcriptUIBlocks[transcriptUIBlocks.length - 3] === mutationTargetElement?.parentElement)) return null;
+			const currentPersonName = (mutationTargetElement?.previousSibling)?.textContent;
+			const currentTranscriptText = mutationTargetElement?.textContent;
+			if (!currentPersonName || !currentTranscriptText) return null;
+			Array.from(transcriptUIBlocks[transcriptUIBlocks.length - 3]?.children ?? []).forEach((item) => {
+				item.setAttribute("style", "opacity:0.2");
+			});
+			return {
+				personName: currentPersonName,
+				text: currentTranscriptText
+			};
+		},
+		parseChatMutation(chatRoot, currentUser) {
+			if (chatRoot.children.length === 0) return null;
+			const chatMessageElement = chatRoot.lastChild?.firstChild?.firstChild?.lastChild;
+			const personAndTimestampElement = chatMessageElement?.firstChild;
+			const personName = personAndTimestampElement?.childNodes.length === 1 ? currentUser : personAndTimestampElement?.firstChild?.textContent ?? null;
+			const text = (chatMessageElement?.lastChild?.lastChild?.firstChild?.firstChild?.firstChild)?.textContent ?? null;
+			if (!personName || !text) return null;
+			return {
+				personName,
+				text
+			};
+		}
+	};
+	//#endregion
+	//#region src/platforms/google-meet/index.ts
 	function checkExtensionStatus() {
 		return new Promise((resolve) => {
 			state.extensionStatusJSON = {
@@ -399,155 +617,6 @@
 			resolve("Extension status set to operational");
 		});
 	}
-	function updateMeetingTitle() {
-		waitForElement(".u6vdEc").then((element) => {
-			const meetingTitleElement = element;
-			if (!meetingTitleElement) return;
-			meetingTitleElement.setAttribute("contenteditable", "true");
-			meetingTitleElement.title = "Edit meeting title for meet-transcripts";
-			meetingTitleElement.style.cssText = `text-decoration: underline white; text-underline-offset: 4px;`;
-			meetingTitleElement.addEventListener("input", handleMeetingTitleElementChange);
-			setTimeout(() => {
-				handleMeetingTitleElementChange();
-				if (location.pathname === `/${meetingTitleElement.innerText}`) showNotification({
-					status: 200,
-					message: "<b>Give this meeting a title?</b><br/>Edit the underlined text in the bottom left corner"
-				});
-			}, 7e3);
-			function handleMeetingTitleElementChange() {
-				state.title = meetingTitleElement.innerText;
-				persistStateFields(["title"]);
-			}
-		});
-	}
-	function meetingRoutines(uiType) {
-		const meetingEndIconData = {
-			selector: "",
-			text: ""
-		};
-		const captionsIconData = {
-			selector: "",
-			text: ""
-		};
-		switch (uiType) {
-			case 2:
-				meetingEndIconData.selector = ".google-symbols";
-				meetingEndIconData.text = "call_end";
-				captionsIconData.selector = ".google-symbols";
-				captionsIconData.text = "closed_caption_off";
-				break;
-			default: break;
-		}
-		waitForElement(meetingEndIconData.selector, meetingEndIconData.text).then(() => {
-			log.info("Meeting started");
-			chrome.runtime.sendMessage(msg({ type: "new_meeting_started" }), () => {});
-			state.hasMeetingStarted = true;
-			state.startTimestamp = (/* @__PURE__ */ new Date()).toISOString();
-			persistStateFields(["startTimestamp"]);
-			updateMeetingTitle();
-			let transcriptObserver;
-			let chatMessagesObserver;
-			let captionWatchdog;
-			let isReattaching = false;
-			const captionContainerSelector = `div[role="region"][tabindex="0"]`;
-			const attachTranscriptObserver = (node) => {
-				transcriptObserver = new MutationObserver(transcriptMutationCallback);
-				transcriptObserver.observe(node, mutationConfig);
-				state.transcriptTargetBuffer = node;
-			};
-			const onVisibilityChange = () => {
-				if (state.hasMeetingEnded || !state.hasMeetingStarted || document.hidden) return;
-				if (state.transcriptTargetBuffer && !state.transcriptTargetBuffer.isConnected && !isReattaching) {
-					const captionEl = document.querySelector(captionContainerSelector);
-					if (!captionEl) return;
-					isReattaching = true;
-					transcriptObserver?.disconnect();
-					attachTranscriptObserver(captionEl);
-					insertGapMarker();
-					isReattaching = false;
-				}
-			};
-			document.addEventListener("visibilitychange", onVisibilityChange);
-			waitForElement(captionsIconData.selector, captionsIconData.text).then(() => {
-				const captionsButton = selectElements(captionsIconData.selector, captionsIconData.text)[0];
-				chrome.storage.sync.get(["operationMode"], (resultSync) => {
-					if (resultSync.operationMode === "manual") log.info("Manual mode selected, leaving transcript off");
-					else captionsButton?.click();
-				});
-				return waitForElement(`div[role="region"][tabindex="0"]`);
-			}).then((targetNode) => {
-				if (targetNode) {
-					attachTranscriptObserver(targetNode);
-					captionWatchdog = new MutationObserver(() => {
-						if (state.hasMeetingEnded || isReattaching) return;
-						if (state.transcriptTargetBuffer && !state.transcriptTargetBuffer.isConnected) {
-							const captionEl = document.querySelector(captionContainerSelector);
-							if (!captionEl) return;
-							isReattaching = true;
-							transcriptObserver?.disconnect();
-							attachTranscriptObserver(captionEl);
-							insertGapMarker();
-							isReattaching = false;
-						}
-					});
-					captionWatchdog.observe(document.body, {
-						childList: true,
-						subtree: true
-					});
-					chrome.storage.sync.get(["operationMode"], (resultSync) => {
-						if (resultSync.operationMode === "manual") showNotification({
-							status: 400,
-							message: "<strong>meet-transcripts is not running</strong> <br /> Turn on captions using the CC icon, if needed"
-						});
-						else showNotification(state.extensionStatusJSON);
-					});
-				} else throw new Error("Transcript element not found in DOM");
-			}).catch((err) => {
-				state.isTranscriptDomErrorCaptured = true;
-				handleContentError("001", err);
-			});
-			waitForElement(".google-symbols", "chat").then(() => {
-				const chatMessagesButton = selectElements(".google-symbols", "chat")[0];
-				chatMessagesButton?.click();
-				return waitForElement(`div[aria-live="polite"].Ge9Kpc`).then((targetNode) => ({
-					targetNode,
-					chatMessagesButton
-				}));
-			}).then(({ targetNode, chatMessagesButton }) => {
-				chatMessagesButton?.click();
-				if (targetNode) {
-					chatMessagesObserver = new MutationObserver(chatMessagesMutationCallback);
-					chatMessagesObserver.observe(targetNode, mutationConfig);
-				} else throw new Error("Chat messages element not found in DOM");
-			}).catch((err) => {
-				state.isChatMessagesDomErrorCaptured = true;
-				handleContentError("003", err);
-			});
-			const handleMeetingEnd = (reason) => {
-				if (state.hasMeetingEnded) return;
-				state.hasMeetingEnded = true;
-				transcriptObserver?.disconnect();
-				chatMessagesObserver?.disconnect();
-				captionWatchdog?.disconnect();
-				detachPipObserver();
-				document.removeEventListener("visibilitychange", onVisibilityChange);
-				window.removeEventListener("pagehide", handlePageHide);
-				if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") pushBufferToTranscript();
-				persistStateAndSignalEnd(["transcript", "chatMessages"], reason).catch(console.error);
-			};
-			const handlePageHide = () => handleMeetingEnd("page_unload");
-			window.addEventListener("pagehide", handlePageHide);
-			try {
-				const clickTarget = selectElements(meetingEndIconData.selector, meetingEndIconData.text)[0]?.parentElement?.parentElement;
-				if (!clickTarget) throw new Error("Call end button element not found in DOM");
-				clickTarget.addEventListener("click", () => handleMeetingEnd("user_click"));
-			} catch (err) {
-				handleContentError("004", err);
-			}
-		});
-	}
-	//#endregion
-	//#region src/content/google-meet.ts
 	Promise.race([recoverLastMeeting(), new Promise((_, reject) => setTimeout(() => reject({
 		errorCode: ErrorCode.NO_HOST_PERMISSION,
 		errorMessage: "Recovery timed out"
@@ -564,20 +633,19 @@
 		]);
 	});
 	checkExtensionStatus().finally(() => {
-		console.log("Extension status " + state.extensionStatusJSON?.status);
 		if (state.extensionStatusJSON?.status === 200) {
 			waitForElement(".awLEm").then(() => {
-				const captureUserNameInterval = setInterval(() => {
+				const captureInterval = setInterval(() => {
 					if (!state.hasMeetingStarted) {
-						const capturedUserName = document.querySelector(".awLEm")?.textContent;
-						if (capturedUserName) {
-							state.userName = capturedUserName;
-							clearInterval(captureUserNameInterval);
+						const name = document.querySelector(".awLEm")?.textContent;
+						if (name) {
+							state.userName = name;
+							clearInterval(captureInterval);
 						}
-					} else clearInterval(captureUserNameInterval);
+					} else clearInterval(captureInterval);
 				}, 100);
 			});
-			meetingRoutines(2);
+			new MeetingSession(GoogleMeetAdapter, state, ChromeStorage).start();
 			initializePipCapture();
 		} else showNotification(state.extensionStatusJSON);
 	});
