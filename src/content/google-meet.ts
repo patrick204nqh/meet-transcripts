@@ -5,6 +5,7 @@ import { waitForElement, showNotification } from './ui'
 import { persistStateFields } from './state-sync'
 import { recoverLastMeeting } from '../shared/messages'
 import { checkExtensionStatus, meetingRoutines } from './meeting-session'
+import { initializePipCapture } from './pip-capture'
 
 // Attempt to recover last meeting, if any. Abort if it takes more than 2 seconds.
 Promise.race([
@@ -44,6 +45,7 @@ checkExtensionStatus().finally(() => {
 
     // Meet UI post July/Aug 2024
     meetingRoutines(2)
+    initializePipCapture()
   } else {
     showNotification(state.extensionStatusJSON)
   }
