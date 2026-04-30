@@ -27,4 +27,16 @@ describe('ExtensionError', () => {
     expect(ErrorCategory.PERMISSION).toBe('PERMISSION')
     expect(ErrorCategory.UI).toBe('UI')
   })
+
+  it('toErrorObject returns a serialisable envelope with code and message', () => {
+    const e = new ExtensionError(ErrorCode.BLOB_READ_FAILED, 'Blob failed', 'STORAGE')
+    expect(e.toErrorObject()).toEqual({ errorCode: ErrorCode.BLOB_READ_FAILED, errorMessage: 'Blob failed' })
+  })
+
+  it('toErrorObject survives JSON round-trip', () => {
+    const e = new ExtensionError(ErrorCode.NO_WEBHOOK_URL, 'No URL', 'NETWORK')
+    const rt = JSON.parse(JSON.stringify(e.toErrorObject()))
+    expect(rt.errorCode).toBe(ErrorCode.NO_WEBHOOK_URL)
+    expect(rt.errorMessage).toBe('No URL')
+  })
 })
