@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "types": ["chrome"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "tests/unit/**/*", "vitest.config.ts"]
 }
