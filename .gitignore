@@ -7,5 +7,8 @@ extension.zip
 /test-results/
 /playwright-report/
 
+# Vitest coverage
+/coverage/
+
 # Claude Code
 .claude/settings.local.json
