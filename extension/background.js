@@ -183,60 +183,54 @@
 		};
 	}
 	//#endregion
-	//#region src/background/download.ts
-	async function downloadTranscript(index) {
-		const meetings = await StorageLocal.getMeetings();
-		if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
-		const meeting = meetings[index];
-		const fileName = buildTranscriptFilename(meeting);
-		let content = getTranscriptString(meeting.transcript);
-		content += `\n\n---------------\nCHAT MESSAGES\n---------------\n\n`;
-		content += getChatMessagesString(meeting.chatMessages);
-		content += "\n\n---------------\n";
-		content += "Transcript saved using meet-transcripts (https://github.com/patrick204nqh/meet-transcripts)";
-		content += "\n---------------";
-		await new Promise((resolve, reject) => {
-			const blob = new Blob([content], { type: "text/plain" });
-			const reader = new FileReader();
-			reader.readAsDataURL(blob);
-			reader.onload = (event) => {
-				if (!event.target?.result) {
-					reject(new ExtensionError(ErrorCode.BLOB_READ_FAILED, "Failed to read blob", "STORAGE"));
-					return;
-				}
-				const dataUrl = event.target.result;
-				chrome.downloads.download({
-					url: dataUrl,
-					filename: fileName,
-					conflictAction: "uniquify"
-				}).then(() => resolve()).catch(() => {
-					chrome.downloads.download({
-						url: dataUrl,
-						filename: "meet-transcripts/Transcript.txt",
-						conflictAction: "uniquify"
-					});
-					resolve();
-				});
-			};
-		});
-	}
-	//#endregion
 	//#region src/services/download.ts
 	var DownloadService = {
-		downloadTranscript: async (index) => downloadTranscript(index),
+		downloadTranscript: async (index) => {
+			const meetings = await StorageLocal.getMeetings();
+			if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
+			const meeting = meetings[index];
+			const fileName = buildTranscriptFilename(meeting);
+			let content = getTranscriptString(meeting.transcript);
+			content += `\n\n---------------\nCHAT MESSAGES\n---------------\n\n`;
+			content += getChatMessagesString(meeting.chatMessages);
+			content += "\n\n---------------\n";
+			content += "Transcript saved using meet-transcripts (https://github.com/patrick204nqh/meet-transcripts)";
+			content += "\n---------------";
+			await new Promise((resolve, reject) => {
+				const blob = new Blob([content], { type: "text/plain" });
+				const reader = new FileReader();
+				reader.readAsDataURL(blob);
+				reader.onload = (event) => {
+					if (!event.target?.result) {
+						reject(new ExtensionError(ErrorCode.BLOB_READ_FAILED, "Failed to read blob", "STORAGE"));
+						return;
+					}
+					const dataUrl = event.target.result;
+					chrome.downloads.download({
+						url: dataUrl,
+						filename: fileName,
+						conflictAction: "uniquify"
+					}).then(() => resolve()).catch(() => {
+						chrome.downloads.download({
+							url: dataUrl,
+							filename: "meet-transcripts/Transcript.txt",
+							conflictAction: "uniquify"
+						});
+						resolve();
+					});
+				};
+			});
+		},
 		formatTranscript: (meeting) => getTranscriptString(meeting.transcript),
 		formatChatMessages: (meeting) => getChatMessagesString(meeting.chatMessages),
 		getMeeting: async (index) => {
 			const meeting = (await StorageLocal.getMeetings())[index];
-			if (!meeting) throw {
-				errorCode: ErrorCode.MEETING_NOT_FOUND,
-				errorMessage: "Meeting at specified index not found"
-			};
+			if (!meeting) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
 			return meeting;
 		}
 	};
 	//#endregion
-	//#region src/background/webhook.ts
+	//#region src/services/webhook.ts
 	var notificationClickTargets = /* @__PURE__ */ new Set();
 	function registerNotificationClickListener() {
 		if (!chrome.notifications?.onClicked) return;
@@ -253,7 +247,7 @@
 	chrome.permissions.onAdded.addListener((permissions) => {
 		if (permissions.permissions?.includes("notifications")) registerNotificationClickListener();
 	});
-	async function postTranscriptToWebhook(index) {
+	var WebhookService = { postWebhook: async (index) => {
 		const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([StorageLocal.getMeetings(), StorageSync.getWebhookSettings()]);
 		if (!webhookUrl) throw new ExtensionError(ErrorCode.NO_WEBHOOK_URL, "No webhook URL configured", "NETWORK");
 		if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
@@ -291,10 +285,7 @@
 		} : m);
 		await StorageLocal.setMeetings(withSuccess);
 		return "Webhook posted successfully";
-	}
-	//#endregion
-	//#region src/services/webhook.ts
-	var WebhookService = { postWebhook: (index) => postTranscriptToWebhook(index) };
+	} };
 	//#endregion
 	//#region src/services/meeting.ts
 	async function pickupLastMeeting() {
