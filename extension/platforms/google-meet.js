@@ -177,9 +177,12 @@
 		if (notify) showNotification(bugStatusJson);
 	}
 	//#endregion
-	//#region src/shared/messages.ts
-	function sendMessage(msg) {
-		return new Promise((resolve, reject) => {
+	//#region src/browser/chrome.ts
+	var ChromeRuntime = {
+		get id() {
+			return chrome.runtime.id;
+		},
+		sendMessage: (msg) => new Promise((resolve, reject) => {
 			chrome.runtime.sendMessage(msg, (raw) => {
 				if (chrome.runtime.lastError) {
 					reject(chrome.runtime.lastError);
@@ -187,11 +190,21 @@
 				}
 				resolve(raw);
 			});
-		});
+		}),
+		onMessage: (handler) => chrome.runtime.onMessage.addListener(handler)
+	};
+	//#endregion
+	//#region src/shared/messages.ts
+	function createMessenger(runtime) {
+		return { sendMessage: (msg) => runtime.sendMessage(msg).then((raw) => raw) };
+	}
+	var defaultMessenger = createMessenger(ChromeRuntime);
+	function sendMessage(msg) {
+		return defaultMessenger.sendMessage(msg);
 	}
 	function recoverLastMeeting() {
 		return sendMessage({ type: "recover_last_meeting" }).then((response) => {
-			if (response.success) return response.data ?? "Last meeting recovered successfully or recovery not needed";
+			if (response.success) return response.data ?? "Last meeting recovered";
 			return Promise.reject(response.error);
 		});
 	}

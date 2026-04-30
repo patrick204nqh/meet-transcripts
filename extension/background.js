@@ -43,6 +43,14 @@
 		}
 	};
 	//#endregion
+	//#region src/browser/chrome.ts
+	var ChromeStorage = {
+		localGet: (keys) => chrome.storage.local.get(keys),
+		localSet: (data) => chrome.storage.local.set(data),
+		syncGet: (keys) => chrome.storage.sync.get(keys),
+		syncSet: (data) => chrome.storage.sync.set(data)
+	};
+	//#endregion
 	//#region src/shared/storage-repo.ts
 	function migrateTranscriptBlock(raw) {
 		return {
@@ -69,62 +77,68 @@
 			webhookPostStatus: raw.webhookPostStatus ?? "new"
 		};
 	}
-	var StorageLocal = {
-		getMeetings: async () => {
-			return ((await chrome.storage.local.get(["meetings"])).meetings ?? []).map(migrateMeeting);
-		},
-		setMeetings: (meetings) => chrome.storage.local.set({ meetings }),
-		getMeetingTabId: async () => {
-			return (await chrome.storage.local.get(["meetingTabId"])).meetingTabId ?? null;
-		},
-		setMeetingTabId: (id) => chrome.storage.local.set({ meetingTabId: id }),
-		getCurrentMeetingData: async () => {
-			const raw = await chrome.storage.local.get([
-				"software",
-				"title",
-				"startTimestamp",
-				"transcript",
-				"chatMessages",
-				"meetingSoftware",
-				"meetingTitle",
-				"meetingStartTimestamp"
-			]);
-			return {
-				software: raw.software ?? raw.meetingSoftware,
-				title: raw.title ?? raw.meetingTitle,
-				startTimestamp: raw.startTimestamp ?? raw.meetingStartTimestamp,
-				transcript: raw.transcript,
-				chatMessages: raw.chatMessages
-			};
-		},
-		setCurrentMeetingData: (data) => chrome.storage.local.set(data),
-		getDeferredUpdatePending: async () => {
-			return !!(await chrome.storage.local.get(["deferredUpdatePending"])).deferredUpdatePending;
-		},
-		setDeferredUpdatePending: (value) => chrome.storage.local.set({ deferredUpdatePending: value })
-	};
-	var StorageSync = {
-		getSettings: async () => {
-			return await chrome.storage.sync.get([
-				"autoPostWebhookAfterMeeting",
-				"autoDownloadFileAfterMeeting",
-				"operationMode",
-				"webhookBodyType",
-				"webhookUrl"
-			]);
-		},
-		setSettings: (settings) => chrome.storage.sync.set(settings),
-		getWebhookSettings: async () => {
-			return await chrome.storage.sync.get(["webhookUrl", "webhookBodyType"]);
-		},
-		getAutoActionSettings: async () => {
-			return await chrome.storage.sync.get([
-				"webhookUrl",
-				"autoPostWebhookAfterMeeting",
-				"autoDownloadFileAfterMeeting"
-			]);
-		}
-	};
+	function createStorageLocal(storage) {
+		return {
+			getMeetings: async () => {
+				return ((await storage.localGet(["meetings"])).meetings ?? []).map(migrateMeeting);
+			},
+			setMeetings: (meetings) => storage.localSet({ meetings }),
+			getMeetingTabId: async () => {
+				return (await storage.localGet(["meetingTabId"])).meetingTabId ?? null;
+			},
+			setMeetingTabId: (id) => storage.localSet({ meetingTabId: id }),
+			getCurrentMeetingData: async () => {
+				const raw = await storage.localGet([
+					"software",
+					"title",
+					"startTimestamp",
+					"transcript",
+					"chatMessages",
+					"meetingSoftware",
+					"meetingTitle",
+					"meetingStartTimestamp"
+				]);
+				return {
+					software: raw.software ?? raw.meetingSoftware,
+					title: raw.title ?? raw.meetingTitle,
+					startTimestamp: raw.startTimestamp ?? raw.meetingStartTimestamp,
+					transcript: raw.transcript,
+					chatMessages: raw.chatMessages
+				};
+			},
+			setCurrentMeetingData: (data) => storage.localSet(data),
+			getDeferredUpdatePending: async () => {
+				return !!(await storage.localGet(["deferredUpdatePending"])).deferredUpdatePending;
+			},
+			setDeferredUpdatePending: (value) => storage.localSet({ deferredUpdatePending: value })
+		};
+	}
+	function createStorageSync(storage) {
+		return {
+			getSettings: async () => {
+				return await storage.syncGet([
+					"autoPostWebhookAfterMeeting",
+					"autoDownloadFileAfterMeeting",
+					"operationMode",
+					"webhookBodyType",
+					"webhookUrl"
+				]);
+			},
+			setSettings: (settings) => storage.syncSet(settings),
+			getWebhookSettings: async () => {
+				return await storage.syncGet(["webhookUrl", "webhookBodyType"]);
+			},
+			getAutoActionSettings: async () => {
+				return await storage.syncGet([
+					"webhookUrl",
+					"autoPostWebhookAfterMeeting",
+					"autoDownloadFileAfterMeeting"
+				]);
+			}
+		};
+	}
+	var StorageLocal = createStorageLocal(ChromeStorage);
+	var StorageSync = createStorageSync(ChromeStorage);
 	//#endregion
 	//#region src/shared/formatters.ts
 	var timeFormat = {
