@@ -38,6 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
         recoverLastMeetingButton.addEventListener("click", function () {
             /** @type {ExtensionMessage} */
             const message = {
+                v: 1,
                 type: "recover_last_meeting",
             }
             chrome.runtime.sendMessage(message, function (responseUntyped) {
@@ -318,6 +319,7 @@ function loadMeetings() {
                     downloadButton.addEventListener("click", function () {
                         /** @type {ExtensionMessage} */
                         const message = {
+                            v: 1,
                             type: "download_transcript_at_index",
                             index: i
                         }
@@ -345,6 +347,7 @@ function loadMeetings() {
 
                                     /** @type {ExtensionMessage} */
                                     const message = {
+                                        v: 1,
                                         type: "post_webhook_at_index",
                                         index: i
                                     }
