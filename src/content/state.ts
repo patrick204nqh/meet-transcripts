@@ -14,5 +14,6 @@ export const state: AppState = {
   isChatMessagesDomErrorCaptured: false,
   hasMeetingStarted: false,
   hasMeetingEnded: false,
+  pipObserverAttached: false,
   extensionStatusJSON: null,
 }

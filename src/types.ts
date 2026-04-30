@@ -95,5 +95,6 @@ export interface AppState {
   isChatMessagesDomErrorCaptured: boolean
   hasMeetingStarted: boolean
   hasMeetingEnded: boolean
+  pipObserverAttached: boolean
   extensionStatusJSON: ExtensionStatusJSON | null
 }
