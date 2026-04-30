@@ -1,5 +1,6 @@
 import type { ExtensionStatusJSON } from '../types'
 import { bugStatusJson } from './constants'
+import { log } from '../shared/logger'
 
 const commonCSS = `background: rgb(255 255 255 / 100%);
     backdrop-filter: blur(16px);
@@ -133,11 +134,7 @@ export function pulseStatus(): void {
   }, 3000)
 }
 
-export function logError(code: string, err: unknown): void {
-  console.error(`[meet-transcripts] Error ${code}:`, err)
-}
-
 export function handleContentError(code: string, err: unknown, notify = true): void {
-  logError(code, err)
+  log.error(`Error ${code}:`, err)
   if (notify) showNotification(bugStatusJson)
 }

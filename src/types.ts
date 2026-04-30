@@ -64,16 +64,7 @@ export interface DebugState {
   lastMeetingStart?: string
 }
 
-export type ExtensionMessage =
-  | { type: "new_meeting_started" }
-  | { type: "meeting_ended"; reason: MeetingEndReason }
-  | { type: "download_transcript_at_index"; index: number }
-  | { type: "post_webhook_at_index"; index: number }
-  | { type: "recover_last_meeting" }
-  | { type: "open_popup" }
-  | { type: "get_debug_state" }
-  /** Test-only: simulates tabs.onUpdated firing with a URL for the given tab ID. */
-  | { type: "simulate_tab_navigated_away"; tabId: number; url: string }
+export type { ExtensionMessage } from './shared/protocol'
 
 export type ExtensionResponse<T = void> =
   | { success: true; data: T }

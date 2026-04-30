@@ -2,14 +2,15 @@ import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { MeetingService } from '../services/meeting'
 import { clearTabIdAndApplyUpdate } from './lifecycle'
 import { reRegisterContentScript } from './content-script'
+import { log } from '../shared/logger'
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   StorageLocal.getMeetingTabId().then((id) => {
     if (tabId === id) {
-      console.log("Successfully intercepted tab close")
+      log.info("Successfully intercepted tab close")
       StorageLocal.setMeetingTabId("processing").then(() =>
         MeetingService.finalizeMeeting()
-          .catch((e) => console.error("finalizeMeeting failed on tab close:", e))
+          .catch((e) => log.error("finalizeMeeting failed on tab close:", e))
           .finally(() => clearTabIdAndApplyUpdate())
       )
     }
@@ -29,10 +30,10 @@ export function handleMeetTabNavigatedAway(tabId: number, newUrl: string): void 
 
     // Meet tab navigated away from an active call URL — treat as meeting exit
     if (!MEET_CALL_URL.test(newUrl)) {
-      console.log("Meet tab navigated away from call — finalizing meeting")
+      log.info("Meet tab navigated away from call — finalizing meeting")
       StorageLocal.setMeetingTabId("processing").then(() =>
         MeetingService.finalizeMeeting()
-          .catch((e) => console.error("finalizeMeeting failed on navigation away:", e))
+          .catch((e) => log.error("finalizeMeeting failed on navigation away:", e))
           .finally(() => clearTabIdAndApplyUpdate())
       )
     }
@@ -49,9 +50,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 chrome.runtime.onUpdateAvailable.addListener(() => {
   StorageLocal.getMeetingTabId().then((id) => {
     if (id) {
-      StorageLocal.setDeferredUpdatePending(true).then(() => console.log("Deferred update flag set"))
+      StorageLocal.setDeferredUpdatePending(true).then(() => log.info("Deferred update flag set"))
     } else {
-      console.log("No active meeting, applying update immediately")
+      log.info("No active meeting, applying update immediately")
       chrome.runtime.reload()
     }
   })

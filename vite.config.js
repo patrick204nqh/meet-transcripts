@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       lib: {
-        entry: 'src/content/google-meet.ts',
+        entry: 'src/platforms/google-meet/index.ts',
         formats: ['iife'],
         name: 'MeetTranscripts',
       },
@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
       minify: false,
       rollupOptions: {
         output: {
-          entryFileNames: 'google-meet.js',
+          entryFileNames: 'platforms/google-meet.js',
         },
       },
     },

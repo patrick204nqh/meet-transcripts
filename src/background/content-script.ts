@@ -3,7 +3,7 @@ import type { Platform } from '../types'
 const PLATFORM_CONFIGS: Record<Platform, { id: string; js: string[]; matches: string[]; excludeMatches: string[] }> = {
   google_meet: {
     id: "google-meet",
-    js: ["google-meet.js"],
+    js: ["platforms/google-meet.js"],
     matches: ["https://meet.google.com/*"],
     excludeMatches: ["https://meet.google.com/", "https://meet.google.com/landing"],
   },

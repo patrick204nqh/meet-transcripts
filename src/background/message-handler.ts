@@ -1,5 +1,7 @@
 import type { ExtensionMessage, ExtensionResponse, ErrorObject, DebugState } from '../types'
-import { ErrorCode } from '../shared/errors'
+import { ErrorCode, ExtensionError } from '../shared/errors'
+import { log } from '../shared/logger'
+import { MIN_SUPPORTED_VERSION, PROTOCOL_VERSION } from '../shared/protocol'
 import { StorageLocal } from '../shared/storage-repo'
 import { MeetingService } from '../services/meeting'
 import { DownloadService } from '../services/download'
@@ -8,7 +10,11 @@ import { clearTabIdAndApplyUpdate } from './lifecycle'
 import { handleMeetTabNavigatedAway } from './event-listeners'
 
 const ok: ExtensionResponse = { success: true, data: undefined }
-const err = (e: ErrorObject): ExtensionResponse => ({ success: false, error: e })
+const err = (e: unknown): ExtensionResponse => {
+  if (e instanceof ExtensionError) return { success: false, error: e.toErrorObject() }
+  const obj = e as ErrorObject
+  return { success: false, error: { errorCode: obj.errorCode ?? "000", errorMessage: obj.errorMessage ?? String(e) } }
+}
 const invalidIndex: ExtensionResponse = {
   success: false,
   error: { errorCode: ErrorCode.INVALID_INDEX, errorMessage: "Invalid index" },
@@ -17,18 +23,26 @@ const isValidIndex = (i: unknown): i is number => typeof i === "number" && i >= 
 
 chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return
+  const versionedMsg = raw as { v?: number; type?: string }
+  if (!versionedMsg.v || versionedMsg.v < MIN_SUPPORTED_VERSION) {
+    sendResponse({
+      success: false,
+      error: { errorCode: ErrorCode.VERSION_MISMATCH, errorMessage: `Protocol version mismatch. Expected v${PROTOCOL_VERSION}, got v${versionedMsg.v ?? 0}. Please refresh the Meet tab.` },
+    })
+    return true
+  }
   const msg = raw as ExtensionMessage
-  console.log(msg.type)
+  log.debug("message received:", msg.type)
 
   if (msg.type === "new_meeting_started") {
     // RC-1 fix: use sender.tab.id (authoritative) instead of tabs.query (races with focus changes)
     if (sender.tab?.id !== undefined) {
       StorageLocal.setMeetingTabId(sender.tab.id)
-        .then(() => console.log("Meeting tab id saved"))
+        .then(() => log.info("Meeting tab id saved"))
         .catch(console.error)
     }
-    chrome.action.setBadgeText({ text: "REC" }).catch((e: unknown) => console.warn("setBadgeText failed:", e))
-    chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e: unknown) => console.warn("setBadgeBgColor failed:", e))
+    chrome.action.setBadgeText({ text: "REC" }).catch((e: unknown) => log.warn("setBadgeText failed:", e))
+    chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e: unknown) => log.warn("setBadgeBgColor failed:", e))
   }
 
   if (msg.type === "meeting_ended") {

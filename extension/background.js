@@ -9,7 +9,46 @@
 		EMPTY_TRANSCRIPT: "014",
 		INVALID_INDEX: "015",
 		NO_HOST_PERMISSION: "016",
-		POPUP_OPEN_FAILED: "017"
+		POPUP_OPEN_FAILED: "017",
+		VERSION_MISMATCH: "018"
+	};
+	var ExtensionError = class extends Error {
+		constructor(code, message, category) {
+			super(message);
+			this.code = code;
+			this.category = category;
+			this.name = "ExtensionError";
+			Object.setPrototypeOf(this, new.target.prototype);
+		}
+		toErrorObject() {
+			return {
+				errorCode: this.code,
+				errorMessage: this.message
+			};
+		}
+	};
+	//#endregion
+	//#region src/shared/logger.ts
+	var PREFIX = "[meet-transcripts]";
+	var log = {
+		debug: (...a) => {},
+		info: (...a) => {
+			console.info(PREFIX, ...a);
+		},
+		warn: (...a) => {
+			console.warn(PREFIX, ...a);
+		},
+		error: (...a) => {
+			console.error(PREFIX, ...a);
+		}
+	};
+	//#endregion
+	//#region src/browser/chrome.ts
+	var ChromeStorage = {
+		localGet: (keys) => chrome.storage.local.get(keys),
+		localSet: (data) => chrome.storage.local.set(data),
+		syncGet: (keys) => chrome.storage.sync.get(keys),
+		syncSet: (data) => chrome.storage.sync.set(data)
 	};
 	//#endregion
 	//#region src/shared/storage-repo.ts
@@ -38,62 +77,68 @@
 			webhookPostStatus: raw.webhookPostStatus ?? "new"
 		};
 	}
-	var StorageLocal = {
-		getMeetings: async () => {
-			return ((await chrome.storage.local.get(["meetings"])).meetings ?? []).map(migrateMeeting);
-		},
-		setMeetings: (meetings) => chrome.storage.local.set({ meetings }),
-		getMeetingTabId: async () => {
-			return (await chrome.storage.local.get(["meetingTabId"])).meetingTabId ?? null;
-		},
-		setMeetingTabId: (id) => chrome.storage.local.set({ meetingTabId: id }),
-		getCurrentMeetingData: async () => {
-			const raw = await chrome.storage.local.get([
-				"software",
-				"title",
-				"startTimestamp",
-				"transcript",
-				"chatMessages",
-				"meetingSoftware",
-				"meetingTitle",
-				"meetingStartTimestamp"
-			]);
-			return {
-				software: raw.software ?? raw.meetingSoftware,
-				title: raw.title ?? raw.meetingTitle,
-				startTimestamp: raw.startTimestamp ?? raw.meetingStartTimestamp,
-				transcript: raw.transcript,
-				chatMessages: raw.chatMessages
-			};
-		},
-		setCurrentMeetingData: (data) => chrome.storage.local.set(data),
-		getDeferredUpdatePending: async () => {
-			return !!(await chrome.storage.local.get(["deferredUpdatePending"])).deferredUpdatePending;
-		},
-		setDeferredUpdatePending: (value) => chrome.storage.local.set({ deferredUpdatePending: value })
-	};
-	var StorageSync = {
-		getSettings: async () => {
-			return await chrome.storage.sync.get([
-				"autoPostWebhookAfterMeeting",
-				"autoDownloadFileAfterMeeting",
-				"operationMode",
-				"webhookBodyType",
-				"webhookUrl"
-			]);
-		},
-		setSettings: (settings) => chrome.storage.sync.set(settings),
-		getWebhookSettings: async () => {
-			return await chrome.storage.sync.get(["webhookUrl", "webhookBodyType"]);
-		},
-		getAutoActionSettings: async () => {
-			return await chrome.storage.sync.get([
-				"webhookUrl",
-				"autoPostWebhookAfterMeeting",
-				"autoDownloadFileAfterMeeting"
-			]);
-		}
-	};
+	function createStorageLocal(storage) {
+		return {
+			getMeetings: async () => {
+				return ((await storage.localGet(["meetings"])).meetings ?? []).map(migrateMeeting);
+			},
+			setMeetings: (meetings) => storage.localSet({ meetings }),
+			getMeetingTabId: async () => {
+				return (await storage.localGet(["meetingTabId"])).meetingTabId ?? null;
+			},
+			setMeetingTabId: (id) => storage.localSet({ meetingTabId: id }),
+			getCurrentMeetingData: async () => {
+				const raw = await storage.localGet([
+					"software",
+					"title",
+					"startTimestamp",
+					"transcript",
+					"chatMessages",
+					"meetingSoftware",
+					"meetingTitle",
+					"meetingStartTimestamp"
+				]);
+				return {
+					software: raw.software ?? raw.meetingSoftware,
+					title: raw.title ?? raw.meetingTitle,
+					startTimestamp: raw.startTimestamp ?? raw.meetingStartTimestamp,
+					transcript: raw.transcript,
+					chatMessages: raw.chatMessages
+				};
+			},
+			setCurrentMeetingData: (data) => storage.localSet(data),
+			getDeferredUpdatePending: async () => {
+				return !!(await storage.localGet(["deferredUpdatePending"])).deferredUpdatePending;
+			},
+			setDeferredUpdatePending: (value) => storage.localSet({ deferredUpdatePending: value })
+		};
+	}
+	function createStorageSync(storage) {
+		return {
+			getSettings: async () => {
+				return await storage.syncGet([
+					"autoPostWebhookAfterMeeting",
+					"autoDownloadFileAfterMeeting",
+					"operationMode",
+					"webhookBodyType",
+					"webhookUrl"
+				]);
+			},
+			setSettings: (settings) => storage.syncSet(settings),
+			getWebhookSettings: async () => {
+				return await storage.syncGet(["webhookUrl", "webhookBodyType"]);
+			},
+			getAutoActionSettings: async () => {
+				return await storage.syncGet([
+					"webhookUrl",
+					"autoPostWebhookAfterMeeting",
+					"autoDownloadFileAfterMeeting"
+				]);
+			}
+		};
+	}
+	var StorageLocal = createStorageLocal(ChromeStorage);
+	var StorageSync = createStorageSync(ChromeStorage);
 	//#endregion
 	//#region src/shared/formatters.ts
 	var timeFormat = {
@@ -138,66 +183,54 @@
 		};
 	}
 	//#endregion
-	//#region src/background/download.ts
-	async function downloadTranscript(index) {
-		const meetings = await StorageLocal.getMeetings();
-		if (!meetings[index]) throw {
-			errorCode: ErrorCode.MEETING_NOT_FOUND,
-			errorMessage: "Meeting at specified index not found"
-		};
-		const meeting = meetings[index];
-		const fileName = buildTranscriptFilename(meeting);
-		let content = getTranscriptString(meeting.transcript);
-		content += `\n\n---------------\nCHAT MESSAGES\n---------------\n\n`;
-		content += getChatMessagesString(meeting.chatMessages);
-		content += "\n\n---------------\n";
-		content += "Transcript saved using meet-transcripts (https://github.com/patrick204nqh/meet-transcripts)";
-		content += "\n---------------";
-		await new Promise((resolve, reject) => {
-			const blob = new Blob([content], { type: "text/plain" });
-			const reader = new FileReader();
-			reader.readAsDataURL(blob);
-			reader.onload = (event) => {
-				if (!event.target?.result) {
-					reject({
-						errorCode: ErrorCode.BLOB_READ_FAILED,
-						errorMessage: "Failed to read blob"
-					});
-					return;
-				}
-				const dataUrl = event.target.result;
-				chrome.downloads.download({
-					url: dataUrl,
-					filename: fileName,
-					conflictAction: "uniquify"
-				}).then(() => resolve()).catch(() => {
-					chrome.downloads.download({
-						url: dataUrl,
-						filename: "meet-transcripts/Transcript.txt",
-						conflictAction: "uniquify"
-					});
-					resolve();
-				});
-			};
-		});
-	}
-	//#endregion
 	//#region src/services/download.ts
 	var DownloadService = {
-		downloadTranscript: async (index) => downloadTranscript(index),
+		downloadTranscript: async (index) => {
+			const meetings = await StorageLocal.getMeetings();
+			if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
+			const meeting = meetings[index];
+			const fileName = buildTranscriptFilename(meeting);
+			let content = getTranscriptString(meeting.transcript);
+			content += `\n\n---------------\nCHAT MESSAGES\n---------------\n\n`;
+			content += getChatMessagesString(meeting.chatMessages);
+			content += "\n\n---------------\n";
+			content += "Transcript saved using meet-transcripts (https://github.com/patrick204nqh/meet-transcripts)";
+			content += "\n---------------";
+			await new Promise((resolve, reject) => {
+				const blob = new Blob([content], { type: "text/plain" });
+				const reader = new FileReader();
+				reader.readAsDataURL(blob);
+				reader.onload = (event) => {
+					if (!event.target?.result) {
+						reject(new ExtensionError(ErrorCode.BLOB_READ_FAILED, "Failed to read blob", "STORAGE"));
+						return;
+					}
+					const dataUrl = event.target.result;
+					chrome.downloads.download({
+						url: dataUrl,
+						filename: fileName,
+						conflictAction: "uniquify"
+					}).then(() => resolve()).catch(() => {
+						chrome.downloads.download({
+							url: dataUrl,
+							filename: "meet-transcripts/Transcript.txt",
+							conflictAction: "uniquify"
+						});
+						resolve();
+					});
+				};
+			});
+		},
 		formatTranscript: (meeting) => getTranscriptString(meeting.transcript),
 		formatChatMessages: (meeting) => getChatMessagesString(meeting.chatMessages),
 		getMeeting: async (index) => {
 			const meeting = (await StorageLocal.getMeetings())[index];
-			if (!meeting) throw {
-				errorCode: ErrorCode.MEETING_NOT_FOUND,
-				errorMessage: "Meeting at specified index not found"
-			};
+			if (!meeting) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
 			return meeting;
 		}
 	};
 	//#endregion
-	//#region src/background/webhook.ts
+	//#region src/services/webhook.ts
 	var notificationClickTargets = /* @__PURE__ */ new Set();
 	function registerNotificationClickListener() {
 		if (!chrome.notifications?.onClicked) return;
@@ -214,22 +247,13 @@
 	chrome.permissions.onAdded.addListener((permissions) => {
 		if (permissions.permissions?.includes("notifications")) registerNotificationClickListener();
 	});
-	async function postTranscriptToWebhook(index) {
+	var WebhookService = { postWebhook: async (index) => {
 		const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([StorageLocal.getMeetings(), StorageSync.getWebhookSettings()]);
-		if (!webhookUrl) throw {
-			errorCode: ErrorCode.NO_WEBHOOK_URL,
-			errorMessage: "No webhook URL configured"
-		};
-		if (!meetings[index]) throw {
-			errorCode: ErrorCode.MEETING_NOT_FOUND,
-			errorMessage: "Meeting at specified index not found"
-		};
+		if (!webhookUrl) throw new ExtensionError(ErrorCode.NO_WEBHOOK_URL, "No webhook URL configured", "NETWORK");
+		if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
 		const urlObj = new URL(webhookUrl);
 		const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`;
-		if (!await new Promise((res) => chrome.permissions.contains({ origins: [originPattern] }, res))) throw {
-			errorCode: ErrorCode.NO_HOST_PERMISSION,
-			errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission."
-		};
+		if (!await new Promise((res) => chrome.permissions.contains({ origins: [originPattern] }, res))) throw new ExtensionError(ErrorCode.NO_HOST_PERMISSION, "No host permission for webhook URL. Re-save the webhook URL to grant permission.", "PERMISSION");
 		const meeting = meetings[index];
 		const webhookData = buildWebhookBody(meeting, webhookBodyType === "advanced" ? "advanced" : "simple");
 		const response = await fetch(webhookUrl, {
@@ -237,10 +261,7 @@
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(webhookData)
 		}).catch((error) => {
-			throw {
-				errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED,
-				errorMessage: error
-			};
+			throw new ExtensionError(ErrorCode.WEBHOOK_REQUEST_FAILED, String(error), "NETWORK");
 		});
 		if (!response.ok) {
 			const withFailed = meetings.map((m, i) => i === index ? {
@@ -256,10 +277,7 @@
 			}, (notificationId) => {
 				notificationClickTargets.add(notificationId);
 			});
-			throw {
-				errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED,
-				errorMessage: `HTTP ${response.status} ${response.statusText}`
-			};
+			throw new ExtensionError(ErrorCode.WEBHOOK_REQUEST_FAILED, `HTTP ${response.status} ${response.statusText}`, "NETWORK");
 		}
 		const withSuccess = meetings.map((m, i) => i === index ? {
 			...m,
@@ -267,22 +285,13 @@
 		} : m);
 		await StorageLocal.setMeetings(withSuccess);
 		return "Webhook posted successfully";
-	}
-	//#endregion
-	//#region src/services/webhook.ts
-	var WebhookService = { postWebhook: (index) => postTranscriptToWebhook(index) };
+	} };
 	//#endregion
 	//#region src/services/meeting.ts
 	async function pickupLastMeeting() {
 		const data = await StorageLocal.getCurrentMeetingData();
-		if (!data.startTimestamp) throw {
-			errorCode: ErrorCode.NO_MEETINGS,
-			errorMessage: "No meetings found. May be attend one?"
-		};
-		if (!data.transcript?.length && !data.chatMessages?.length) throw {
-			errorCode: ErrorCode.EMPTY_TRANSCRIPT,
-			errorMessage: "Empty transcript and empty chatMessages"
-		};
+		if (!data.startTimestamp) throw new ExtensionError(ErrorCode.NO_MEETINGS, "No meetings found. May be attend one?", "MEETING");
+		if (!data.transcript?.length && !data.chatMessages?.length) throw new ExtensionError(ErrorCode.EMPTY_TRANSCRIPT, "Empty transcript and empty chatMessages", "MEETING");
 		const newEntry = {
 			software: data.software,
 			title: data.title,
@@ -310,10 +319,7 @@
 	}
 	async function recoverLastMeeting() {
 		const [meetings, data] = await Promise.all([StorageLocal.getMeetings(), StorageLocal.getCurrentMeetingData()]);
-		if (!data.startTimestamp) throw {
-			errorCode: ErrorCode.NO_MEETINGS,
-			errorMessage: "No meetings found. May be attend one?"
-		};
+		if (!data.startTimestamp) throw new ExtensionError(ErrorCode.NO_MEETINGS, "No meetings found. May be attend one?", "MEETING");
 		const lastSaved = meetings.length > 0 ? meetings[meetings.length - 1] : void 0;
 		if (!lastSaved || data.startTimestamp !== lastSaved.startTimestamp) {
 			await finalizeMeeting();
@@ -331,9 +337,9 @@
 	async function clearTabIdAndApplyUpdate() {
 		chrome.action.setBadgeText({ text: "" });
 		await StorageLocal.setMeetingTabId(null);
-		console.log("Meeting tab id cleared for next meeting");
+		log.info("Meeting tab id cleared for next meeting");
 		if (await StorageLocal.getDeferredUpdatePending()) {
-			console.log("Applying deferred update");
+			log.info("Applying deferred update");
 			await StorageLocal.setDeferredUpdatePending(false);
 			chrome.runtime.reload();
 		}
@@ -342,7 +348,7 @@
 	//#region src/background/content-script.ts
 	var PLATFORM_CONFIGS = { google_meet: {
 		id: "google-meet",
-		js: ["google-meet.js"],
+		js: ["platforms/google-meet.js"],
 		matches: ["https://meet.google.com/*"],
 		excludeMatches: ["https://meet.google.com/", "https://meet.google.com/landing"]
 	} };
@@ -395,8 +401,8 @@
 	chrome.tabs.onRemoved.addListener((tabId) => {
 		StorageLocal.getMeetingTabId().then((id) => {
 			if (tabId === id) {
-				console.log("Successfully intercepted tab close");
-				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => console.error("finalizeMeeting failed on tab close:", e)).finally(() => clearTabIdAndApplyUpdate()));
+				log.info("Successfully intercepted tab close");
+				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => log.error("finalizeMeeting failed on tab close:", e)).finally(() => clearTabIdAndApplyUpdate()));
 			}
 		});
 	});
@@ -409,8 +415,8 @@
 		StorageLocal.getMeetingTabId().then((id) => {
 			if (id === "processing" || id === null || tabId !== id) return;
 			if (!MEET_CALL_URL.test(newUrl)) {
-				console.log("Meet tab navigated away from call — finalizing meeting");
-				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => console.error("finalizeMeeting failed on navigation away:", e)).finally(() => clearTabIdAndApplyUpdate()));
+				log.info("Meet tab navigated away from call — finalizing meeting");
+				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => log.error("finalizeMeeting failed on navigation away:", e)).finally(() => clearTabIdAndApplyUpdate()));
 			}
 		}).catch(console.error);
 	}
@@ -420,9 +426,9 @@
 	});
 	chrome.runtime.onUpdateAvailable.addListener(() => {
 		StorageLocal.getMeetingTabId().then((id) => {
-			if (id) StorageLocal.setDeferredUpdatePending(true).then(() => console.log("Deferred update flag set"));
+			if (id) StorageLocal.setDeferredUpdatePending(true).then(() => log.info("Deferred update flag set"));
 			else {
-				console.log("No active meeting, applying update immediately");
+				log.info("No active meeting, applying update immediately");
 				chrome.runtime.reload();
 			}
 		});
@@ -448,10 +454,20 @@
 		success: true,
 		data: void 0
 	};
-	var err = (e) => ({
-		success: false,
-		error: e
-	});
+	var err = (e) => {
+		if (e instanceof ExtensionError) return {
+			success: false,
+			error: e.toErrorObject()
+		};
+		const obj = e;
+		return {
+			success: false,
+			error: {
+				errorCode: obj.errorCode ?? "000",
+				errorMessage: obj.errorMessage ?? String(e)
+			}
+		};
+	};
 	var invalidIndex = {
 		success: false,
 		error: {
@@ -462,12 +478,23 @@
 	var isValidIndex = (i) => typeof i === "number" && i >= 0;
 	chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
 		if (sender.id !== chrome.runtime.id) return;
+		const versionedMsg = raw;
+		if (!versionedMsg.v || versionedMsg.v < 1) {
+			sendResponse({
+				success: false,
+				error: {
+					errorCode: ErrorCode.VERSION_MISMATCH,
+					errorMessage: `Protocol version mismatch. Expected v1, got v${versionedMsg.v ?? 0}. Please refresh the Meet tab.`
+				}
+			});
+			return true;
+		}
 		const msg = raw;
-		console.log(msg.type);
+		log.debug("message received:", msg.type);
 		if (msg.type === "new_meeting_started") {
-			if (sender.tab?.id !== void 0) StorageLocal.setMeetingTabId(sender.tab.id).then(() => console.log("Meeting tab id saved")).catch(console.error);
-			chrome.action.setBadgeText({ text: "REC" }).catch((e) => console.warn("setBadgeText failed:", e));
-			chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e) => console.warn("setBadgeBgColor failed:", e));
+			if (sender.tab?.id !== void 0) StorageLocal.setMeetingTabId(sender.tab.id).then(() => log.info("Meeting tab id saved")).catch(console.error);
+			chrome.action.setBadgeText({ text: "REC" }).catch((e) => log.warn("setBadgeText failed:", e));
+			chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e) => log.warn("setBadgeBgColor failed:", e));
 		}
 		if (msg.type === "meeting_ended") {
 			StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))).finally(() => clearTabIdAndApplyUpdate()));
