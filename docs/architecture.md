@@ -40,7 +40,7 @@ C4Container
 
     Container_Boundary(ext, "Meet Transcripts Extension (MV3)") {
         Container(bg, "Background Service Worker", "background.js", "Central orchestrator: meeting lifecycle, webhook dispatch, file download, storage management")
-        Container(cs, "Content Script", "google-meet.js", "Injected into meet.google.com — observes DOM caption mutations and extracts speaker + text chunks")
+        Container(cs, "Content Script", "platforms/google-meet.js", "Injected into meet.google.com — observes DOM caption mutations and extracts speaker + text chunks")
         Container(popup, "Popup UI", "popup.html / popup.js", "Mode toggle (auto / manual), link to meetings page")
         Container(meetings, "Meetings UI", "meetings.html / meetings.js", "Meeting history viewer and webhook configuration")
     }
@@ -77,44 +77,44 @@ C4Component
     title Component Diagram — Background Service Worker (background.js)
 
     Container_Boundary(bg, "Background Service Worker") {
-        Component(msgHandler, "Message Handler", "message-handler.ts", "Entry point — routes incoming chrome.runtime messages from content script and UI containers")
+        Component(msgHandler, "Message Handler", "message-handler.ts", "Entry point — routes incoming chrome.runtime messages; enforces protocol version gate (v field required)")
         Component(lifecycle, "Meeting Lifecycle", "lifecycle.ts", "Clears tab ID and applies deferred extension updates after meeting processing completes")
         Component(evtListeners, "Event Listeners", "event-listeners.ts", "Handles tab removal, tab navigation away from call, runtime update, permissions, and install events")
-        Component(storeMgr, "Storage Repo", "shared/storage-repo.ts", "Abstracts all chrome.storage.sync and .local reads and writes")
+        Component(storeMgr, "Storage Repo", "shared/storage-repo.ts", "createStorageLocal / createStorageSync factories injected with IBrowserStorage; Chrome singletons for backward compat")
         Component(meetingSvc, "Meeting Service", "services/meeting.ts", "Orchestrates pickup, finalize, and recover meeting use-cases")
-        Component(webhookAdp, "Webhook Adapter", "background/webhook.ts", "Builds payload and POSTs to the configured webhook URL; writes status back to storage")
-        Component(downloadAdp, "Download Adapter", "background/download.ts", "Triggers browser download of the transcript as a .txt file via chrome.downloads")
+        Component(webhookSvc, "Webhook Service", "services/webhook.ts", "Builds payload and POSTs to the configured webhook URL; writes status back to storage")
+        Component(downloadSvc, "Download Service", "services/download.ts", "Triggers browser download of the transcript as a .txt file via chrome.downloads")
         Component(formatters, "Formatters", "shared/formatters.ts", "Pure functions: transcript/chat string rendering, filename sanitisation, webhook body construction")
     }
 
-    Container(cs, "Content Script", "google-meet.js", "Caption capture")
+    Container(cs, "Content Script", "platforms/google-meet.js", "Caption capture")
     Container(popup, "Popup UI", "popup.html/js", "Mode toggle")
     Container(meetings, "Meetings UI", "meetings.html/js", "History & config")
     ContainerDb(sync, "chrome.storage.sync", "Chrome Storage API", "Settings")
     ContainerDb(local, "chrome.storage.local", "Chrome Storage API", "Transcript data")
     System_Ext(webhookEp, "Webhook Endpoint", "External HTTP endpoint")
 
-    Rel(cs, msgHandler, "Transcript chunk / meeting events", "chrome.runtime.sendMessage")
+    Rel(cs, msgHandler, "Versioned meeting events", "chrome.runtime.sendMessage (v field required)")
     Rel(popup, msgHandler, "Commands / queries", "chrome.runtime.sendMessage")
     Rel(meetings, msgHandler, "Commands / queries", "chrome.runtime.sendMessage")
 
     Rel(msgHandler, meetingSvc, "Delegates meeting lifecycle use-cases")
-    Rel(msgHandler, downloadAdp, "Delegates download requests")
-    Rel(msgHandler, webhookAdp, "Delegates webhook retry requests")
+    Rel(msgHandler, downloadSvc, "Delegates download requests")
+    Rel(msgHandler, webhookSvc, "Delegates webhook retry requests")
     Rel(msgHandler, lifecycle, "Calls clearTabIdAndApplyUpdate after meeting ends")
 
     Rel(meetingSvc, storeMgr, "Reads current meeting data, reads/writes meetings list")
-    Rel(meetingSvc, downloadAdp, "Triggers auto-download on finalize")
-    Rel(meetingSvc, webhookAdp, "Triggers auto-post on finalize")
+    Rel(meetingSvc, downloadSvc, "Triggers auto-download on finalize")
+    Rel(meetingSvc, webhookSvc, "Triggers auto-post on finalize")
 
-    Rel(downloadAdp, storeMgr, "Reads meetings list")
-    Rel(downloadAdp, formatters, "buildTranscriptFilename, getTranscriptString")
-    Rel(webhookAdp, storeMgr, "Reads meetings list, webhook settings; writes status")
-    Rel(webhookAdp, formatters, "buildWebhookBody")
+    Rel(downloadSvc, storeMgr, "Reads meetings list")
+    Rel(downloadSvc, formatters, "buildTranscriptFilename, getTranscriptString")
+    Rel(webhookSvc, storeMgr, "Reads meetings list, webhook settings; writes status")
+    Rel(webhookSvc, formatters, "buildWebhookBody")
 
     Rel(storeMgr, sync, "Read / write")
     Rel(storeMgr, local, "Read / write")
-    Rel(webhookAdp, webhookEp, "HTTP POST")
+    Rel(webhookSvc, webhookEp, "HTTP POST")
 
     UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
 ```
@@ -128,32 +128,42 @@ The TypeScript source is the canonical representation of the codebase. Vite comp
 ```
 src/
 ├── types.ts                    # Domain types (Meeting, TranscriptBlock, ExtensionResponse, …)
+├── browser/                    # Browser API port — interfaces + Chrome concrete implementations
+│   ├── types.ts                # IBrowserStorage, IBrowserRuntime interfaces
+│   └── chrome.ts               # ChromeStorage, ChromeRuntime — wire interfaces to chrome.*
+├── platforms/                  # Platform adapters — all DOM knowledge lives here
+│   ├── types.ts                # IPlatformAdapter interface
+│   └── google-meet/
+│       ├── adapter.ts          # GoogleMeetAdapter — DOM selectors + parsing logic
+│       └── index.ts            # Content script entry point → builds to extension/platforms/google-meet.js
 ├── background/                 # Chrome API I/O adapters — no business logic
 │   ├── message-handler.ts      # chrome.runtime.onMessage entry point → builds to extension/background.js
 │   ├── lifecycle.ts            # Post-meeting cleanup and deferred update handling
 │   ├── event-listeners.ts      # Tab, update, permissions, install event wiring
-│   ├── content-script.ts       # Content script registration via chrome.scripting
-│   ├── download.ts             # chrome.downloads adapter
-│   └── webhook.ts              # fetch adapter + notification
-├── content/                    # DOM observers — builds to extension/google-meet.js
-│   ├── google-meet.ts          # Content script entry point
-│   ├── meeting-session.ts      # Extension status check + meeting routines
+│   └── content-script.ts       # Content script registration via chrome.scripting
+├── content/                    # DOM observers and session lifecycle
+│   ├── core/                   # Session lifecycle classes
+│   │   ├── meeting-session.ts  # MeetingSession class — drives session start/end
+│   │   └── observer-manager.ts # Owns transcript/chat/watchdog MutationObserver lifetimes
+│   ├── observer/               # DOM MutationObserver implementations
+│   │   ├── transcript-observer.ts
+│   │   └── chat-observer.ts
 │   ├── state-sync.ts           # Persists content state to chrome.storage.local
-│   ├── state.ts                # In-memory content script state
-│   ├── ui.ts                   # Notification banner, status pulse
-│   ├── constants.ts            # meetingSoftware constant
-│   └── observer/               # DOM MutationObserver implementations
-│       ├── transcript-observer.ts
-│       └── chat-observer.ts
-├── services/                   # Use-case orchestration — no Chrome APIs
+│   ├── state.ts                # In-memory state + createSessionState() factory
+│   ├── ui.ts                   # Notification banner, status pulse, DOM wait utilities
+│   ├── pip-capture.ts          # Document Picture-in-Picture caption capture
+│   └── constants.ts            # meetingSoftware, mutationConfig
+├── services/                   # Use-case orchestration — owns all Chrome API calls for I/O
 │   ├── meeting.ts              # pickupLastMeeting, finalizeMeeting, recoverLastMeeting
-│   ├── download.ts             # DownloadService façade
-│   └── webhook.ts              # WebhookService façade
+│   ├── download.ts             # DownloadService — chrome.downloads + transcript formatting
+│   └── webhook.ts              # WebhookService — fetch + notification + status write-back
 └── shared/                     # Pure utilities, no side-effects
-    ├── errors.ts               # ErrorCode constants
+    ├── errors.ts               # ErrorCode constants + ExtensionError class + ErrorCategory
     ├── formatters.ts           # Text formatting, filename sanitisation, webhook body builder
-    ├── messages.ts             # sendMessage wrapper, recoverLastMeeting helper
-    └── storage-repo.ts         # StorageLocal / StorageSync typed abstractions
+    ├── logger.ts               # Leveled logger ([meet-transcripts] prefix; debug silenced in prod)
+    ├── messages.ts             # sendMessage wrapper + IBrowserRuntime injection
+    ├── protocol.ts             # Versioned ExtensionMessage types + msg() factory
+    └── storage-repo.ts         # createStorageLocal / createStorageSync + Chrome singletons
 ```
 
 ---
@@ -235,12 +245,18 @@ erDiagram
 |------|------|
 | `extension/manifest.json` | Extension metadata, permissions, host matches |
 | `extension/background.js` | Compiled service worker — built from `src/background/message-handler.ts` |
-| `extension/google-meet.js` | Compiled content script — built from `src/content/google-meet.ts` |
+| `extension/platforms/google-meet.js` | Compiled content script — built from `src/platforms/google-meet/index.ts` |
 | `extension/popup.html/js` | Extension popup UI (plain JS, not compiled) |
 | `extension/meetings.html/js` | Meeting history and webhook configuration UI (plain JS, not compiled) |
-| `src/types.ts` | All domain types and message/response contracts |
-| `src/shared/errors.ts` | `ErrorCode` constants |
-| `src/shared/storage-repo.ts` | `StorageLocal` / `StorageSync` typed wrappers |
+| `src/types.ts` | Domain types; `ExtensionMessage` re-exported from `protocol.ts` |
+| `src/browser/types.ts` | `IBrowserStorage`, `IBrowserRuntime` port interfaces |
+| `src/platforms/types.ts` | `IPlatformAdapter` interface |
+| `src/platforms/google-meet/adapter.ts` | All Google Meet DOM selectors and mutation parsing |
+| `src/content/core/meeting-session.ts` | `MeetingSession` class — session lifecycle |
+| `src/shared/errors.ts` | `ErrorCode` constants + `ExtensionError` class + `ErrorCategory` |
+| `src/shared/logger.ts` | Leveled logger — `log.debug/info/warn/error`; debug suppressed in production |
+| `src/shared/protocol.ts` | Versioned `ExtensionMessage` types + `msg()` factory |
+| `src/shared/storage-repo.ts` | `createStorageLocal` / `createStorageSync` + Chrome singletons |
 | `src/shared/formatters.ts` | Pure text formatting, filename sanitisation, webhook body builder |
 | `src/services/meeting.ts` | Meeting use-case orchestration |
 | `vite.config.js` | Vite build — two IIFE bundles (background + content script) |

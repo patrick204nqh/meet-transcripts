@@ -13,7 +13,7 @@ Meet Transcripts is an independently maintained project. There is no upstream re
 5. Click **Load unpacked** and select the `extension/` folder
 6. While iterating, run `npm run dev` to rebuild on save, then click the refresh icon at `chrome://extensions` to reload
 
-The TypeScript source under `src/` is the canonical code; Vite compiles it into the two IIFE bundles in `extension/`. Edit `src/`, never `extension/background.js` or `extension/google-meet.js`.
+The TypeScript source under `src/` is the canonical code; Vite compiles it into the two IIFE bundles in `extension/`. Edit `src/`, never `extension/background.js` or `extension/platforms/google-meet.js`.
 
 ---
 
@@ -22,19 +22,24 @@ The TypeScript source under `src/` is the canonical code; Vite compiles it into 
 ```
 src/                       # TypeScript source — canonical
 ├── types.ts               # Domain types and message contracts
-├── shared/                # Pure utilities (formatters, errors, storage repo, messages)
-├── services/              # Use-case orchestration (meeting, download, webhook)
-├── background/            # Chrome API adapters (message-handler, event-listeners, lifecycle)
-└── content/               # DOM observers (google-meet entry, observers, state-sync, ui)
+├── browser/               # Browser API port (IBrowserStorage, IBrowserRuntime + Chrome impl)
+├── platforms/             # Platform adapters — all DOM knowledge lives here
+│   └── google-meet/       # GoogleMeetAdapter + content script entry point
+├── shared/                # Pure utilities (formatters, errors, logger, protocol, storage repo)
+├── services/              # Use-case orchestration — owns Chrome I/O calls (meeting, download, webhook)
+├── background/            # Chrome event wiring (message-handler, event-listeners, lifecycle)
+└── content/               # Session lifecycle and DOM observers
+    ├── core/              # MeetingSession, ObserverManager
+    └── observer/          # MutationObserver implementations
 
 extension/                 # Built artifacts and unbundled UI
 ├── manifest.json          # Extension manifest (MV3)
 ├── popup.html / popup.js  # Toolbar popup UI (plain JS, not compiled)
 ├── meetings.html / meetings.js  # Meeting history and webhook config (plain JS, not compiled)
 ├── background.js          # Compiled service worker (do not edit by hand)
-├── google-meet.js         # Compiled content script (do not edit by hand)
-├── icon.png               # Toolbar icon (128×128 PNG)
-└── icons/                 # SVG assets and logo
+├── platforms/
+│   └── google-meet.js     # Compiled content script (do not edit by hand)
+└── icons/                 # Extension icons
 
 docs/
 ├── architecture.md        # Extension internals (C4 diagrams)
@@ -76,8 +81,9 @@ Open an issue first to discuss the approach before writing code. Meet Transcript
 
 ### Google Meet DOM changes
 
-Caption capture relies on DOM selectors in `src/content/` (compiled into `extension/google-meet.js`). If Google updates their UI these selectors may break silently. When fixing a broken selector:
+Caption capture relies on DOM selectors in `src/platforms/google-meet/adapter.ts` (compiled into `extension/platforms/google-meet.js`). All selectors are centralised in the `GoogleMeetAdapter` — no other file should reference Meet-specific class names. If Google updates their UI these selectors may break silently. When fixing a broken selector:
 
+- Update the selector in `adapter.ts` only
 - Document the old and new selector in the commit message
 - Note the approximate date Google rolled out the change
 
@@ -85,18 +91,31 @@ Caption capture relies on DOM selectors in `src/content/` (compiled into `extens
 
 ## Testing
 
-There is no automated unit test suite for the extension itself. Manual testing is required:
+The project has two test suites:
 
-- Join a real Google Meet (or use the [Meet test environment](https://meet.google.com/)) with captions enabled
-- Verify transcripts are saved after the meeting ends
-- Verify webhook POST fires if configured
-- Check the meetings history page renders correctly
-- Run Playwright integration tests if modifying `meetings.html` behaviour:
+**Unit tests (Vitest)** — fast, no browser, cover shared utilities and content observers:
+
+```bash
+npm run test:unit          # run once
+npm run test:unit:watch    # watch mode
+npm run test:unit:coverage # coverage report
+```
+
+Unit tests live alongside the source (`src/**/*.test.ts`) and in `tests/unit/`. A `makeChromeMock()` factory in `tests/unit/chrome-mock.ts` provides a reusable chrome API stub.
+
+**E2E tests (Playwright)** — require a real Chromium build and run against the compiled extension:
 
 ```bash
 npm install
-npx playwright test
+npm test
 ```
+
+Manual testing is also required for DOM-dependent features:
+
+- Join a real Google Meet with captions enabled
+- Verify transcripts are saved after the meeting ends
+- Verify webhook POST fires if configured
+- Check the meetings history page renders correctly
 
 ---
 
