@@ -246,6 +246,7 @@
 	}
 	//#endregion
 	//#region src/content/observer/transcript-observer.ts
+	var TRANSCRIPT_RESTART_THRESHOLD = -250;
 	function insertGapMarker() {
 		state.transcript.push({
 			personName: "[meet-transcripts]",
@@ -285,7 +286,7 @@
 								state.timestampBuffer = (/* @__PURE__ */ new Date()).toISOString();
 								state.transcriptTextBuffer = currentTranscriptText;
 							} else {
-								if (currentTranscriptText.length - state.transcriptTextBuffer.length < -250) {
+								if (currentTranscriptText.length - state.transcriptTextBuffer.length < TRANSCRIPT_RESTART_THRESHOLD) {
 									pushBufferToTranscript();
 									state.timestampBuffer = (/* @__PURE__ */ new Date()).toISOString();
 								}
@@ -362,20 +363,26 @@
 			persistStateFields(["chatMessages"]);
 		}
 	}
+	function parseChatFromRoot(chatRoot, currentUser) {
+		if (chatRoot.children.length === 0) return null;
+		const chatMessageElement = chatRoot.lastChild?.firstChild?.firstChild?.lastChild;
+		const personAndTimestampElement = chatMessageElement?.firstChild;
+		const personName = personAndTimestampElement?.childNodes.length === 1 ? currentUser : personAndTimestampElement?.firstChild?.textContent ?? null;
+		const chatMessageText = (chatMessageElement?.lastChild?.lastChild?.firstChild?.firstChild?.firstChild)?.textContent ?? null;
+		if (!personName || !chatMessageText) return null;
+		return {
+			personName,
+			timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+			text: chatMessageText
+		};
+	}
 	function chatMessagesMutationCallback(_mutationsList) {
 		try {
-			const chatMessagesElement = document.querySelector(`div[aria-live="polite"].Ge9Kpc`);
-			if (!chatMessagesElement || chatMessagesElement.children.length === 0) return;
-			const chatMessageElement = chatMessagesElement.lastChild?.firstChild?.firstChild?.lastChild;
-			const personAndTimestampElement = chatMessageElement?.firstChild;
-			const personName = personAndTimestampElement?.childNodes.length === 1 ? state.userName : personAndTimestampElement?.firstChild?.textContent ?? null;
-			const timestamp = (/* @__PURE__ */ new Date()).toISOString();
-			const chatMessageText = (chatMessageElement?.lastChild?.lastChild?.firstChild?.firstChild?.firstChild)?.textContent ?? null;
-			if (personName && chatMessageText) pushUniqueChatBlock({
-				personName,
-				timestamp,
-				text: chatMessageText
-			});
+			const anyTarget = _mutationsList[0]?.target;
+			const chatRoot = (anyTarget ? anyTarget.ownerDocument ?? document : document).querySelector(`div[aria-live="polite"].Ge9Kpc`);
+			if (!chatRoot) return;
+			const parsed = parseChatFromRoot(chatRoot, state.userName);
+			if (parsed) pushUniqueChatBlock(parsed);
 		} catch (err) {
 			if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) handleContentError("006", err);
 			state.isChatMessagesDomErrorCaptured = true;

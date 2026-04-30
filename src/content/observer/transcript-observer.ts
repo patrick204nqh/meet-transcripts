@@ -4,6 +4,10 @@ import { handleContentError } from '../ui'
 import { persistStateFields } from '../state-sync'
 import { log } from '../../shared/logger'
 
+// Google Meet drops and restarts a speaker's transcript block after ~30 minutes.
+// A sudden shrink beyond this threshold signals a restart, not normal editing.
+const TRANSCRIPT_RESTART_THRESHOLD = -250
+
 export function insertGapMarker(): void {
   state.transcript.push({
     personName: "[meet-transcripts]",
@@ -52,7 +56,7 @@ export function transcriptMutationCallback(mutationsList: MutationRecord[]): voi
                 state.transcriptTextBuffer = currentTranscriptText
               } else {
                 // Same person speaking >30min — Meet drops and restarts their transcript
-                if ((currentTranscriptText.length - state.transcriptTextBuffer.length) < -250) {
+                if ((currentTranscriptText.length - state.transcriptTextBuffer.length) < TRANSCRIPT_RESTART_THRESHOLD) {
                   pushBufferToTranscript()
                   state.timestampBuffer = new Date().toISOString()
                 }
