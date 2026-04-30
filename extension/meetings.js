@@ -19,6 +19,11 @@ function showToast(message, type = 'info', duration = 4000) {
     if (!container) return
     const toast = document.createElement('div')
     toast.className = `toast toast-${type}`
+    if (type === 'error') {
+        toast.setAttribute('role', 'alert')
+    } else {
+        toast.setAttribute('role', 'status')
+    }
     toast.textContent = message
     container.appendChild(toast)
     setTimeout(() => toast.remove(), duration)
@@ -31,6 +36,9 @@ function showToast(message, type = 'info', duration = 4000) {
 function showConfirm(message, onConfirm) {
     const container = document.getElementById('toast-container')
     if (!container) return
+    // Dismiss any existing confirm toast before showing a new one
+    const existing = container.querySelector('.toast-confirm')
+    if (existing) existing.remove()
     const toast = document.createElement('div')
     toast.className = 'toast toast-confirm'
     const msg = document.createElement('p')
@@ -51,6 +59,8 @@ function showConfirm(message, onConfirm) {
     container.appendChild(toast)
     yes.addEventListener('click', () => { onConfirm(); toast.remove() })
     no.addEventListener('click', () => toast.remove())
+    // Auto-dismiss after 15 s if no action taken
+    setTimeout(() => { if (toast.isConnected) toast.remove() }, 15000)
 }
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -409,6 +419,7 @@ function loadMeetings() {
                                             if (typeof parsedError === 'object') {
                                                 console.error(parsedError.errorMessage)
                                             }
+                                            showToast("Failed to post webhook.", 'error')
                                         }
                                     })
                                 }).catch((error) => {
