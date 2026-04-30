@@ -1,6 +1,7 @@
 import { state } from './state'
 import { mutationConfig } from './constants'
 import { transcriptMutationCallback, insertGapMarker } from './observer/transcript-observer'
+import { log } from '../shared/logger'
 
 // Confirmed via Phase 0 discovery: same selector as main-tab caption container
 const PIP_CAPTION_SELECTOR = 'div[role="region"][tabindex="0"]'
@@ -25,7 +26,7 @@ function attachPipObserver(pipDoc: Document): void {
     pipObserver.observe(captionEl, mutationConfig)
     state.pipObserverAttached = true
     state.transcriptTargetBuffer = captionEl
-    console.log("PiP entered — attaching caption observer")
+    log.info("PiP entered — attaching caption observer")
     insertGapMarker()
     return true
   }
@@ -48,7 +49,7 @@ export function detachPipObserver(): void {
 export function initializePipCapture(): void {
   const dpip = (window as unknown as { documentPictureInPicture?: DocumentPictureInPictureLike }).documentPictureInPicture
   if (!dpip) {
-    console.log("Document Picture-in-Picture not supported — PiP capture disabled")
+    log.info("Document Picture-in-Picture not supported — PiP capture disabled")
     return
   }
 
@@ -59,7 +60,7 @@ export function initializePipCapture(): void {
   })
 
   dpip.addEventListener("leave", () => {
-    console.log("PiP left — detaching caption observer")
+    log.info("PiP left — detaching caption observer")
     detachPipObserver()
     insertGapMarker()
   })

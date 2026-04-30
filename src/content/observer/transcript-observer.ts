@@ -2,6 +2,7 @@ import { state } from '../state'
 import { mutationConfig } from '../constants'
 import { handleContentError } from '../ui'
 import { persistStateFields } from '../state-sync'
+import { log } from '../../shared/logger'
 
 export function insertGapMarker(): void {
   state.transcript.push({
@@ -59,7 +60,7 @@ export function transcriptMutationCallback(mutationsList: MutationRecord[]): voi
               }
             }
           } else {
-            console.log("No active transcript")
+            log.debug("No active transcript")
             if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") {
               pushBufferToTranscript()
             }
@@ -69,7 +70,7 @@ export function transcriptMutationCallback(mutationsList: MutationRecord[]): voi
         }
       }
 
-      console.log("Transcript captured")
+      log.debug("Transcript captured")
     } catch (err) {
       if (!state.isTranscriptDomErrorCaptured && !state.hasMeetingEnded) {
         handleContentError("005", err)

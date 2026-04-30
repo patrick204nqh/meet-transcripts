@@ -2,6 +2,7 @@ import type { ChatMessage } from '../../types'
 import { state } from '../state'
 import { handleContentError } from '../ui'
 import { persistStateFields } from '../state-sync'
+import { log } from '../../shared/logger'
 
 export function pushUniqueChatBlock(chatBlock: ChatMessage): void {
   const isExisting = state.chatMessages.some(item =>
@@ -9,7 +10,7 @@ export function pushUniqueChatBlock(chatBlock: ChatMessage): void {
     item.text === chatBlock.text
   )
   if (!isExisting) {
-    console.log("Chat message captured")
+    log.debug("Chat message captured")
     state.chatMessages.push(chatBlock)
     persistStateFields(["chatMessages"])
   }

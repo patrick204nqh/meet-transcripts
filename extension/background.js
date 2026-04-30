@@ -12,6 +12,21 @@
 		POPUP_OPEN_FAILED: "017"
 	};
 	//#endregion
+	//#region src/shared/logger.ts
+	var PREFIX = "[meet-transcripts]";
+	var log = {
+		debug: (...a) => {},
+		info: (...a) => {
+			console.info(PREFIX, ...a);
+		},
+		warn: (...a) => {
+			console.warn(PREFIX, ...a);
+		},
+		error: (...a) => {
+			console.error(PREFIX, ...a);
+		}
+	};
+	//#endregion
 	//#region src/shared/storage-repo.ts
 	function migrateTranscriptBlock(raw) {
 		return {
@@ -331,9 +346,9 @@
 	async function clearTabIdAndApplyUpdate() {
 		chrome.action.setBadgeText({ text: "" });
 		await StorageLocal.setMeetingTabId(null);
-		console.log("Meeting tab id cleared for next meeting");
+		log.info("Meeting tab id cleared for next meeting");
 		if (await StorageLocal.getDeferredUpdatePending()) {
-			console.log("Applying deferred update");
+			log.info("Applying deferred update");
 			await StorageLocal.setDeferredUpdatePending(false);
 			chrome.runtime.reload();
 		}
@@ -342,7 +357,7 @@
 	//#region src/background/content-script.ts
 	var PLATFORM_CONFIGS = { google_meet: {
 		id: "google-meet",
-		js: ["google-meet.js"],
+		js: ["platforms/google-meet.js"],
 		matches: ["https://meet.google.com/*"],
 		excludeMatches: ["https://meet.google.com/", "https://meet.google.com/landing"]
 	} };
@@ -395,8 +410,8 @@
 	chrome.tabs.onRemoved.addListener((tabId) => {
 		StorageLocal.getMeetingTabId().then((id) => {
 			if (tabId === id) {
-				console.log("Successfully intercepted tab close");
-				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => console.error("finalizeMeeting failed on tab close:", e)).finally(() => clearTabIdAndApplyUpdate()));
+				log.info("Successfully intercepted tab close");
+				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => log.error("finalizeMeeting failed on tab close:", e)).finally(() => clearTabIdAndApplyUpdate()));
 			}
 		});
 	});
@@ -409,8 +424,8 @@
 		StorageLocal.getMeetingTabId().then((id) => {
 			if (id === "processing" || id === null || tabId !== id) return;
 			if (!MEET_CALL_URL.test(newUrl)) {
-				console.log("Meet tab navigated away from call — finalizing meeting");
-				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => console.error("finalizeMeeting failed on navigation away:", e)).finally(() => clearTabIdAndApplyUpdate()));
+				log.info("Meet tab navigated away from call — finalizing meeting");
+				StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().catch((e) => log.error("finalizeMeeting failed on navigation away:", e)).finally(() => clearTabIdAndApplyUpdate()));
 			}
 		}).catch(console.error);
 	}
@@ -420,9 +435,9 @@
 	});
 	chrome.runtime.onUpdateAvailable.addListener(() => {
 		StorageLocal.getMeetingTabId().then((id) => {
-			if (id) StorageLocal.setDeferredUpdatePending(true).then(() => console.log("Deferred update flag set"));
+			if (id) StorageLocal.setDeferredUpdatePending(true).then(() => log.info("Deferred update flag set"));
 			else {
-				console.log("No active meeting, applying update immediately");
+				log.info("No active meeting, applying update immediately");
 				chrome.runtime.reload();
 			}
 		});
@@ -463,11 +478,11 @@
 	chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
 		if (sender.id !== chrome.runtime.id) return;
 		const msg = raw;
-		console.log(msg.type);
+		log.debug("message received:", msg.type);
 		if (msg.type === "new_meeting_started") {
-			if (sender.tab?.id !== void 0) StorageLocal.setMeetingTabId(sender.tab.id).then(() => console.log("Meeting tab id saved")).catch(console.error);
-			chrome.action.setBadgeText({ text: "REC" }).catch((e) => console.warn("setBadgeText failed:", e));
-			chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e) => console.warn("setBadgeBgColor failed:", e));
+			if (sender.tab?.id !== void 0) StorageLocal.setMeetingTabId(sender.tab.id).then(() => log.info("Meeting tab id saved")).catch(console.error);
+			chrome.action.setBadgeText({ text: "REC" }).catch((e) => log.warn("setBadgeText failed:", e));
+			chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e) => log.warn("setBadgeBgColor failed:", e));
 		}
 		if (msg.type === "meeting_ended") {
 			StorageLocal.setMeetingTabId("processing").then(() => MeetingService.finalizeMeeting().then(() => sendResponse(ok)).catch((e) => sendResponse(err(e))).finally(() => clearTabIdAndApplyUpdate()));

@@ -1,5 +1,6 @@
 import type { ExtensionMessage, ExtensionResponse, ErrorObject, DebugState } from '../types'
 import { ErrorCode } from '../shared/errors'
+import { log } from '../shared/logger'
 import { StorageLocal } from '../shared/storage-repo'
 import { MeetingService } from '../services/meeting'
 import { DownloadService } from '../services/download'
@@ -18,17 +19,17 @@ const isValidIndex = (i: unknown): i is number => typeof i === "number" && i >= 
 chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return
   const msg = raw as ExtensionMessage
-  console.log(msg.type)
+  log.debug("message received:", msg.type)
 
   if (msg.type === "new_meeting_started") {
     // RC-1 fix: use sender.tab.id (authoritative) instead of tabs.query (races with focus changes)
     if (sender.tab?.id !== undefined) {
       StorageLocal.setMeetingTabId(sender.tab.id)
-        .then(() => console.log("Meeting tab id saved"))
+        .then(() => log.info("Meeting tab id saved"))
         .catch(console.error)
     }
-    chrome.action.setBadgeText({ text: "REC" }).catch((e: unknown) => console.warn("setBadgeText failed:", e))
-    chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e: unknown) => console.warn("setBadgeBgColor failed:", e))
+    chrome.action.setBadgeText({ text: "REC" }).catch((e: unknown) => log.warn("setBadgeText failed:", e))
+    chrome.action.setBadgeBackgroundColor({ color: "#c0392b" }).catch((e: unknown) => log.warn("setBadgeBgColor failed:", e))
   }
 
   if (msg.type === "meeting_ended") {

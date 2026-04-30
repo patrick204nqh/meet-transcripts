@@ -44,6 +44,21 @@
 	};
 	var meetingSoftware = "Google Meet";
 	//#endregion
+	//#region src/shared/logger.ts
+	var PREFIX = "[meet-transcripts]";
+	var log = {
+		debug: (...a) => {},
+		info: (...a) => {
+			console.info(PREFIX, ...a);
+		},
+		warn: (...a) => {
+			console.warn(PREFIX, ...a);
+		},
+		error: (...a) => {
+			console.error(PREFIX, ...a);
+		}
+	};
+	//#endregion
 	//#region src/content/ui.ts
 	var commonCSS = `background: rgb(255 255 255 / 100%);
     backdrop-filter: blur(16px);
@@ -156,11 +171,8 @@
 			el.style.cssText = `background-color: transparent; ${statusActivityCSS}`;
 		}, 3e3);
 	}
-	function logError(code, err) {
-		console.error(`[meet-transcripts] Error ${code}:`, err);
-	}
 	function handleContentError(code, err, notify = true) {
-		logError(code, err);
+		log.error(`Error ${code}:`, err);
 		if (notify) showNotification(bugStatusJson);
 	}
 	//#endregion
@@ -260,14 +272,14 @@
 								state.transcriptTextBuffer = currentTranscriptText;
 							}
 						} else {
-							console.log("No active transcript");
+							log.debug("No active transcript");
 							if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") pushBufferToTranscript();
 							state.personNameBuffer = "";
 							state.transcriptTextBuffer = "";
 						}
 					}
 				}
-				console.log("Transcript captured");
+				log.debug("Transcript captured");
 			} catch (err) {
 				if (!state.isTranscriptDomErrorCaptured && !state.hasMeetingEnded) handleContentError("005", err);
 				state.isTranscriptDomErrorCaptured = true;
@@ -287,7 +299,7 @@
 			pipObserver.observe(captionEl, mutationConfig);
 			state.pipObserverAttached = true;
 			state.transcriptTargetBuffer = captionEl;
-			console.log("PiP entered — attaching caption observer");
+			log.info("PiP entered — attaching caption observer");
 			insertGapMarker();
 			return true;
 		};
@@ -308,7 +320,7 @@
 	function initializePipCapture() {
 		const dpip = window.documentPictureInPicture;
 		if (!dpip) {
-			console.log("Document Picture-in-Picture not supported — PiP capture disabled");
+			log.info("Document Picture-in-Picture not supported — PiP capture disabled");
 			return;
 		}
 		dpip.addEventListener("enter", (event) => {
@@ -316,7 +328,7 @@
 			attachPipObserver(event.window.document);
 		});
 		dpip.addEventListener("leave", () => {
-			console.log("PiP left — detaching caption observer");
+			log.info("PiP left — detaching caption observer");
 			detachPipObserver();
 			insertGapMarker();
 		});
@@ -325,7 +337,7 @@
 	//#region src/content/observer/chat-observer.ts
 	function pushUniqueChatBlock(chatBlock) {
 		if (!state.chatMessages.some((item) => item.personName === chatBlock.personName && item.text === chatBlock.text)) {
-			console.log("Chat message captured");
+			log.debug("Chat message captured");
 			state.chatMessages.push(chatBlock);
 			persistStateFields(["chatMessages"]);
 		}
@@ -400,7 +412,7 @@
 			default: break;
 		}
 		waitForElement(meetingEndIconData.selector, meetingEndIconData.text).then(() => {
-			console.log("Meeting started");
+			log.info("Meeting started");
 			chrome.runtime.sendMessage({ type: "new_meeting_started" }, () => {});
 			state.hasMeetingStarted = true;
 			state.startTimestamp = (/* @__PURE__ */ new Date()).toISOString();
@@ -432,7 +444,7 @@
 			waitForElement(captionsIconData.selector, captionsIconData.text).then(() => {
 				const captionsButton = selectElements(captionsIconData.selector, captionsIconData.text)[0];
 				chrome.storage.sync.get(["operationMode"], (resultSync) => {
-					if (resultSync.operationMode === "manual") console.log("Manual mode selected, leaving transcript off");
+					if (resultSync.operationMode === "manual") log.info("Manual mode selected, leaving transcript off");
 					else captionsButton?.click();
 				});
 				return waitForElement(`div[role="region"][tabindex="0"]`);

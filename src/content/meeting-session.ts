@@ -1,5 +1,6 @@
 import type { ExtensionMessage, MeetingEndReason } from '../types'
 import { state } from './state'
+import { log } from '../shared/logger'
 import { mutationConfig } from './constants'
 import { selectElements, waitForElement, showNotification, handleContentError } from './ui'
 import { persistStateFields, persistStateAndSignalEnd } from './state-sync'
@@ -54,7 +55,7 @@ export function meetingRoutines(uiType: number): void {
   }
 
   waitForElement(meetingEndIconData.selector, meetingEndIconData.text).then(() => {
-    console.log("Meeting started")
+    log.info("Meeting started")
     const message: ExtensionMessage = { type: "new_meeting_started" }
     chrome.runtime.sendMessage(message, () => { })
     state.hasMeetingStarted = true
@@ -96,7 +97,7 @@ export function meetingRoutines(uiType: number): void {
         const captionsButton = selectElements(captionsIconData.selector, captionsIconData.text)[0] as HTMLElement
         chrome.storage.sync.get(["operationMode"], (resultSync: { operationMode?: string }) => {
           if (resultSync.operationMode === "manual") {
-            console.log("Manual mode selected, leaving transcript off")
+            log.info("Manual mode selected, leaving transcript off")
           } else {
             captionsButton?.click()
           }
