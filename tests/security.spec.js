@@ -13,7 +13,7 @@ const TELEMETRY_PATTERNS = [
 
 const SOURCE_FILES = [
   'background.js',
-  'google-meet.js',
+  'platforms/google-meet.js',
   'popup.js',
   'meetings.js',
 ];

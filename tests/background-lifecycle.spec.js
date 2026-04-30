@@ -7,7 +7,7 @@ test.describe('Background lifecycle', () => {
 
     const result = await page.evaluate(() => {
       return new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'get_debug_state' }, resolve)
+        chrome.runtime.sendMessage({ type: 'get_debug_state', v: 1 }, resolve)
       })
     })
 
@@ -39,7 +39,7 @@ test.describe('Background lifecycle', () => {
     // Send new_meeting_started from this tab (simulates content script)
     // Fire-and-forget: new_meeting_started has no response, so don't await the callback
     await page.evaluate(() => {
-      chrome.runtime.sendMessage({ type: 'new_meeting_started' })
+      chrome.runtime.sendMessage({ type: 'new_meeting_started', v: 1 })
     })
 
     await expect.poll(
@@ -94,6 +94,7 @@ test.describe('Background lifecycle', () => {
     await popupPage.evaluate((tabId) => {
       return new Promise((resolve) => chrome.runtime.sendMessage({
         type: 'simulate_tab_navigated_away',
+        v: 1,
         tabId,
         url: 'https://meet.google.com/',
       }, resolve))

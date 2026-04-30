@@ -89,6 +89,10 @@ test.describe('Meetings page', () => {
 
   test('webhook URL persists after save and page reload', async ({ page }) => {
     const url = 'https://hooks.example.com/my-webhook';
+    // Headless Chrome auto-denies chrome.permissions.request() — stub it so the save flow completes
+    await page.evaluate(() => {
+      chrome.permissions.request = async () => true;
+    });
     await page.locator('#webhook-url').fill(url);
     await page.locator('#save-webhook').click();
     await page.reload();
