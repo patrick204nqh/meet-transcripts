@@ -25,6 +25,7 @@ function attachPipObserver(pipDoc: Document): void {
     pipObserver.observe(captionEl, mutationConfig)
     state.pipObserverAttached = true
     state.transcriptTargetBuffer = captionEl
+    console.log("PiP entered — attaching caption observer")
     insertGapMarker()
     return true
   }
@@ -54,9 +55,7 @@ export function initializePipCapture(): void {
   dpip.addEventListener("enter", (event: Event) => {
     if (state.hasMeetingEnded) return
     const pipEvent = event as DocumentPictureInPictureEvent
-    const pipDoc = pipEvent.window.document
-    console.log("PiP entered — attaching caption observer")
-    attachPipObserver(pipDoc)
+    attachPipObserver(pipEvent.window.document)
   })
 
   dpip.addEventListener("leave", () => {
