@@ -1,5 +1,5 @@
 import type { Meeting } from '../types'
-import { ErrorCode } from '../shared/errors'
+import { ErrorCode, ExtensionError } from '../shared/errors'
 import { StorageLocal, StorageSync } from '../shared/storage-repo'
 import { buildWebhookBody } from '../shared/formatters'
 
@@ -30,13 +30,13 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
     StorageSync.getWebhookSettings(),
   ])
 
-  if (!webhookUrl) throw { errorCode: ErrorCode.NO_WEBHOOK_URL, errorMessage: "No webhook URL configured" }
-  if (!meetings[index]) throw { errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" }
+  if (!webhookUrl) throw new ExtensionError(ErrorCode.NO_WEBHOOK_URL, "No webhook URL configured", "NETWORK")
+  if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING")
 
   const urlObj = new URL(webhookUrl)
   const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`
   const hasPermission = await new Promise<boolean>(res => chrome.permissions.contains({ origins: [originPattern] }, res))
-  if (!hasPermission) throw { errorCode: ErrorCode.NO_HOST_PERMISSION, errorMessage: "No host permission for webhook URL. Re-save the webhook URL to grant permission." }
+  if (!hasPermission) throw new ExtensionError(ErrorCode.NO_HOST_PERMISSION, "No host permission for webhook URL. Re-save the webhook URL to grant permission.", "PERMISSION")
 
   const meeting: Meeting = meetings[index]
   const bodyType = webhookBodyType === "advanced" ? "advanced" : "simple"
@@ -46,7 +46,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(webhookData),
-  }).catch(error => { throw { errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED, errorMessage: error } })
+  }).catch((error: unknown) => { throw new ExtensionError(ErrorCode.WEBHOOK_REQUEST_FAILED, String(error), "NETWORK") })
 
   if (!response.ok) {
     const withFailed = meetings.map((m, i) => i === index ? { ...m, webhookPostStatus: "failed" as const } : m)
@@ -59,7 +59,7 @@ export async function postTranscriptToWebhook(index: number): Promise<string> {
     }, (notificationId) => {
       notificationClickTargets.add(notificationId)
     })
-    throw { errorCode: ErrorCode.WEBHOOK_REQUEST_FAILED, errorMessage: `HTTP ${response.status} ${response.statusText}` }
+    throw new ExtensionError(ErrorCode.WEBHOOK_REQUEST_FAILED, `HTTP ${response.status} ${response.statusText}`, "NETWORK")
   }
 
   const withSuccess = meetings.map((m, i) => i === index ? { ...m, webhookPostStatus: "successful" as const } : m)

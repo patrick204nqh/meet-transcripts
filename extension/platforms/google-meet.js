@@ -9,7 +9,8 @@
 		EMPTY_TRANSCRIPT: "014",
 		INVALID_INDEX: "015",
 		NO_HOST_PERMISSION: "016",
-		POPUP_OPEN_FAILED: "017"
+		POPUP_OPEN_FAILED: "017",
+		VERSION_MISMATCH: "018"
 	};
 	//#endregion
 	//#region src/content/state.ts

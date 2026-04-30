@@ -1,4 +1,4 @@
-import { ErrorCode } from '../shared/errors'
+import { ErrorCode, ExtensionError } from '../shared/errors'
 import { StorageLocal } from '../shared/storage-repo'
 import { getTranscriptString, getChatMessagesString, buildTranscriptFilename } from '../shared/formatters'
 
@@ -6,7 +6,7 @@ export async function downloadTranscript(index: number): Promise<void> {
   const meetings = await StorageLocal.getMeetings()
 
   if (!meetings[index]) {
-    throw { errorCode: ErrorCode.MEETING_NOT_FOUND, errorMessage: "Meeting at specified index not found" }
+    throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING")
   }
 
   const meeting = meetings[index]
@@ -25,7 +25,7 @@ export async function downloadTranscript(index: number): Promise<void> {
     reader.readAsDataURL(blob)
     reader.onload = (event) => {
       if (!event.target?.result) {
-        reject({ errorCode: ErrorCode.BLOB_READ_FAILED, errorMessage: "Failed to read blob" })
+        reject(new ExtensionError(ErrorCode.BLOB_READ_FAILED, "Failed to read blob", "STORAGE"))
         return
       }
       const dataUrl = event.target.result as string

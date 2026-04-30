@@ -1,5 +1,5 @@
 import type { ExtensionMessage, ExtensionResponse, ErrorObject, DebugState } from '../types'
-import { ErrorCode } from '../shared/errors'
+import { ErrorCode, ExtensionError } from '../shared/errors'
 import { log } from '../shared/logger'
 import { StorageLocal } from '../shared/storage-repo'
 import { MeetingService } from '../services/meeting'
@@ -9,7 +9,11 @@ import { clearTabIdAndApplyUpdate } from './lifecycle'
 import { handleMeetTabNavigatedAway } from './event-listeners'
 
 const ok: ExtensionResponse = { success: true, data: undefined }
-const err = (e: ErrorObject): ExtensionResponse => ({ success: false, error: e })
+const err = (e: unknown): ExtensionResponse => {
+  if (e instanceof ExtensionError) return { success: false, error: e.toErrorObject() }
+  const obj = e as ErrorObject
+  return { success: false, error: { errorCode: obj.errorCode ?? "000", errorMessage: obj.errorMessage ?? String(e) } }
+}
 const invalidIndex: ExtensionResponse = {
   success: false,
   error: { errorCode: ErrorCode.INVALID_INDEX, errorMessage: "Invalid index" },
