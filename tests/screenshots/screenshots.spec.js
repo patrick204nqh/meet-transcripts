@@ -4,12 +4,12 @@
  * Tagged @screenshots so it only runs when explicitly requested:
  *   npx playwright test --grep @screenshots
  */
-import { test } from './fixtures/extension.js';
+import { test } from '../fixtures/extension.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUT = path.join(__dirname, '../docs/assets');
+const OUT = path.join(__dirname, '../../docs/assets');
 
 const MOCK_MEETINGS = [
   {
@@ -88,11 +88,15 @@ test('@screenshots capture meetings page — with data', async ({ page, extensio
   await tableContainer.screenshot({ path: path.join(OUT, 'meetings-table.png') });
 });
 
-test('@screenshots capture webhook config screenshot', async ({ page, extensionId }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(`chrome-extension://${extensionId}/meetings.html#webhooks`);
+test('@screenshots capture settings page screenshot', async ({ page, extensionId }) => {
+  await page.setViewportSize({ width: 900, height: 800 });
+  await page.goto(`chrome-extension://${extensionId}/settings.html`);
   await page.waitForSelector('#webhook-url');
 
-  const webhookSection = page.locator('#webhooks');
-  await webhookSection.screenshot({ path: path.join(OUT, 'webhooks.png') });
+  // Pre-open the payload reference details so they show in the screenshot
+  await page.evaluate(() => {
+    document.querySelectorAll('details').forEach(d => { d.open = true; });
+  });
+
+  await page.screenshot({ path: path.join(OUT, 'settings.png'), fullPage: true });
 });

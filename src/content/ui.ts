@@ -138,3 +138,23 @@ export function handleContentError(code: string, err: unknown, notify = true): v
   log.error(`Error ${code}:`, err)
   if (notify) showNotification(bugStatusJson)
 }
+
+// Resolves immediately when the tab is already visible; otherwise waits for
+// the next visibilitychange to 'visible'. Call this before triggering any
+// Meet UI clicks that cause Meet's service worker to make network fetches —
+// the SW can be in its activation window right after navigation, causing
+// transient FetchEvent failures if clicks fire too early.
+export function waitForPageVisible(): Promise<void> {
+  if (document.visibilityState === 'visible') return Promise.resolve()
+  return new Promise(resolve => {
+    const timer = setTimeout(resolve, 30_000)
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        clearTimeout(timer)
+        document.removeEventListener('visibilitychange', handler)
+        resolve()
+      }
+    }
+    document.addEventListener('visibilitychange', handler)
+  })
+}

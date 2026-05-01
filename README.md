@@ -14,12 +14,12 @@ Installed as an unpacked extension — not published to the Chrome Web Store. Pr
   <tr>
     <td align="center"><strong>Popup</strong></td>
     <td align="center"><strong>Meeting history</strong></td>
-    <td align="center"><strong>Webhook config</strong></td>
+    <td align="center"><strong>Settings</strong></td>
   </tr>
   <tr>
     <td><img src="docs/assets/popup.png" alt="Extension popup" width="280"></td>
     <td><img src="docs/assets/meetings-table.png" alt="Meeting history" width="560"></td>
-    <td><img src="docs/assets/webhooks.png" alt="Webhook configuration" width="560"></td>
+    <td><img src="docs/assets/settings.png" alt="Settings page" width="560"></td>
   </tr>
 </table>
 
@@ -54,26 +54,30 @@ This extension is installed in Chrome as an unpacked extension. It requires **de
 
 To update: pull the latest `main`, run `npm run build`, then click the refresh icon on the extension card at `chrome://extensions`.
 
-> **Development:** use `npm run dev` to watch `src/` for changes and rebuild `extension/google-meet.js` and `extension/background.js` automatically.
+> **Development:** use `npm run dev` to watch `src/` for changes and rebuild automatically.
 
 ---
 
 ## Usage
 
-The extension has two modes:
+The extension has three pages:
+
+- **Popup** — shows live recording status (idle / ready / recording), lets you toggle capture mode, and links to the other pages
+- **Meetings** — lists the last 10 captured meetings with download, webhook post, and delete actions per row
+- **Settings** — configure capture mode, auto-download, webhook URL, and payload format
+
+**Capture modes:**
 
 - **Auto mode** — records transcripts for every meeting automatically
-- **Manual mode** — toggle capture on and off during each meeting via the extension popup
+- **Manual mode** — toggle capture on and off during each meeting via the popup
 
-At the end of a meeting the transcript is downloaded as a `.txt` file. Open the extension popup to view the last 10 meetings or configure a webhook.
-
-The popup detects whether your active tab is a Google Meet session and reflects the live status — pulsing blue when you're on a call, dimmed when you're not.
+At the end of a meeting the transcript is downloaded as a `.txt` file. The popup reflects live recording state — pulsing red while recording, pulsing blue when on a call but not yet recording, dimmed when not on Meet.
 
 ---
 
 ## Webhook integration
 
-Pipe transcripts to any tool that accepts a webhook POST. Configure the URL in the extension's webhooks page (`meetings.html`). Supports both a simple pre-formatted body and a raw advanced body for code integrations.
+Pipe transcripts to any tool that accepts a webhook POST. Configure the URL in the **Settings** page. Supports both a simple pre-formatted body and a raw advanced body for code integrations.
 
 ---
 
