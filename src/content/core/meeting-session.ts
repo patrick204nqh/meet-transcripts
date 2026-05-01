@@ -20,7 +20,9 @@ export class MeetingSession {
     private _storage: IBrowserStorage,
   ) {
     this.observerManager = new ObserverManager(state, adapter.captionContainerSelector)
-    this.handlePageHide = () => this.end("page_unload")
+    // Skip ending the session on pagehide when PiP is active — the meeting continues
+    // in the PiP window even though the main tab may fire pagehide when backgrounded.
+    this.handlePageHide = () => { if (!this.state.pipObserverAttached) this.end("page_unload") }
     this.handleVisibilityChange = () => this.observerManager.reattachTranscriptIfDisconnected()
   }
 

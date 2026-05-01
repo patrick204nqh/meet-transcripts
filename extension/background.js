@@ -31,9 +31,7 @@
 	//#region src/shared/logger.ts
 	var PREFIX = "[meet-transcripts]";
 	var log = {
-		debug: (...a) => {
-			console.debug(PREFIX, ...a);
-		},
+		debug: (...a) => {},
 		info: (...a) => {
 			console.info(PREFIX, ...a);
 		},

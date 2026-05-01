@@ -33,7 +33,7 @@
 			extensionStatusJSON: null
 		};
 	}
-	var state$1 = createSessionState();
+	var state = createSessionState();
 	//#endregion
 	//#region src/content/constants.ts
 	var bugStatusJson = {
@@ -51,9 +51,7 @@
 	//#region src/shared/logger.ts
 	var PREFIX = "[meet-transcripts]";
 	var log = {
-		debug: (...a) => {
-			console.debug(PREFIX, ...a);
-		},
+		debug: (...a) => {},
 		info: (...a) => {
 			console.info(PREFIX, ...a);
 		},
@@ -244,10 +242,10 @@
 	function buildStorageObject(keys) {
 		const obj = {};
 		if (keys.includes("software")) obj.software = meetingSoftware;
-		if (keys.includes("title")) obj.title = state$1.title;
-		if (keys.includes("startTimestamp")) obj.startTimestamp = state$1.startTimestamp;
-		if (keys.includes("transcript")) obj.transcript = state$1.transcript;
-		if (keys.includes("chatMessages")) obj.chatMessages = state$1.chatMessages;
+		if (keys.includes("title")) obj.title = state.title;
+		if (keys.includes("startTimestamp")) obj.startTimestamp = state.startTimestamp;
+		if (keys.includes("transcript")) obj.transcript = state.transcript;
+		if (keys.includes("chatMessages")) obj.chatMessages = state.chatMessages;
 		return obj;
 	}
 	function persistStateFields(keys) {
@@ -273,7 +271,7 @@
 	//#region src/content/observer/transcript-observer.ts
 	var TRANSCRIPT_RESTART_THRESHOLD = -250;
 	function insertGapMarker() {
-		state$1.transcript.push({
+		state.transcript.push({
 			personName: "[meet-transcripts]",
 			timestamp: (/* @__PURE__ */ new Date()).toISOString(),
 			text: "[Captions unavailable — tab was not in focus]"
@@ -281,10 +279,10 @@
 		persistStateFields(["transcript"]);
 	}
 	function pushBufferToTranscript() {
-		state$1.transcript.push({
-			personName: state$1.personNameBuffer === "You" ? state$1.userName : state$1.personNameBuffer,
-			timestamp: state$1.timestampBuffer,
-			text: state$1.transcriptTextBuffer
+		state.transcript.push({
+			personName: state.personNameBuffer === "You" ? state.userName : state.personNameBuffer,
+			timestamp: state.timestampBuffer,
+			text: state.transcriptTextBuffer
 		});
 		persistStateFields(["transcript"]);
 	}
@@ -294,41 +292,47 @@
 				if (mutation.type === "characterData") {
 					const mutationTargetElement = mutation.target.parentElement;
 					const transcriptUIBlocks = [...mutationTargetElement?.parentElement?.parentElement?.children ?? []];
-					if (transcriptUIBlocks[transcriptUIBlocks.length - 3] === mutationTargetElement?.parentElement) {
+					const activeIndex = transcriptUIBlocks.length >= 3 ? transcriptUIBlocks.length - 3 : transcriptUIBlocks.length - 1;
+					const isAtPosition = transcriptUIBlocks[activeIndex] === mutationTargetElement?.parentElement;
+					const precedingSibling = mutationTargetElement?.previousSibling;
+					const isActiveBlock = isAtPosition || state.pipObserverAttached && !!precedingSibling?.textContent?.trim();
+					log.debug("Transcript mutation — blocks:", transcriptUIBlocks.length, "activeIndex:", activeIndex, "positioned:", isAtPosition, "pip-fallback:", !isAtPosition && state.pipObserverAttached);
+					if (isActiveBlock) {
 						const currentPersonName = (mutationTargetElement?.previousSibling)?.textContent;
 						const currentTranscriptText = mutationTargetElement?.textContent;
 						if (currentPersonName && currentTranscriptText) {
-							Array.from(transcriptUIBlocks[transcriptUIBlocks.length - 3]?.children ?? []).forEach((item) => {
+							const blockToDim = isAtPosition ? transcriptUIBlocks[activeIndex] : mutationTargetElement?.parentElement;
+							Array.from(blockToDim?.children ?? []).forEach((item) => {
 								item.setAttribute("style", "opacity:0.2");
 							});
-							if (state$1.transcriptTextBuffer === "") {
-								state$1.personNameBuffer = currentPersonName;
-								state$1.timestampBuffer = (/* @__PURE__ */ new Date()).toISOString();
-								state$1.transcriptTextBuffer = currentTranscriptText;
-							} else if (state$1.personNameBuffer !== currentPersonName) {
+							if (state.transcriptTextBuffer === "") {
+								state.personNameBuffer = currentPersonName;
+								state.timestampBuffer = (/* @__PURE__ */ new Date()).toISOString();
+								state.transcriptTextBuffer = currentTranscriptText;
+							} else if (state.personNameBuffer !== currentPersonName) {
 								pushBufferToTranscript();
-								state$1.personNameBuffer = currentPersonName;
-								state$1.timestampBuffer = (/* @__PURE__ */ new Date()).toISOString();
-								state$1.transcriptTextBuffer = currentTranscriptText;
+								state.personNameBuffer = currentPersonName;
+								state.timestampBuffer = (/* @__PURE__ */ new Date()).toISOString();
+								state.transcriptTextBuffer = currentTranscriptText;
 							} else {
-								if (currentTranscriptText.length - state$1.transcriptTextBuffer.length < TRANSCRIPT_RESTART_THRESHOLD) {
+								if (currentTranscriptText.length - state.transcriptTextBuffer.length < TRANSCRIPT_RESTART_THRESHOLD) {
 									pushBufferToTranscript();
-									state$1.timestampBuffer = (/* @__PURE__ */ new Date()).toISOString();
+									state.timestampBuffer = (/* @__PURE__ */ new Date()).toISOString();
 								}
-								state$1.transcriptTextBuffer = currentTranscriptText;
+								state.transcriptTextBuffer = currentTranscriptText;
 							}
 						} else {
 							log.debug("No active transcript");
-							if (state$1.personNameBuffer !== "" && state$1.transcriptTextBuffer !== "") pushBufferToTranscript();
-							state$1.personNameBuffer = "";
-							state$1.transcriptTextBuffer = "";
+							if (state.personNameBuffer !== "" && state.transcriptTextBuffer !== "") pushBufferToTranscript();
+							state.personNameBuffer = "";
+							state.transcriptTextBuffer = "";
 						}
 					}
 				}
 				log.debug("Transcript captured");
 			} catch (err) {
-				if (!state$1.isTranscriptDomErrorCaptured && !state$1.hasMeetingEnded) handleContentError("005", err);
-				state$1.isTranscriptDomErrorCaptured = true;
+				if (!state.isTranscriptDomErrorCaptured && !state.hasMeetingEnded) handleContentError("005", err);
+				state.isTranscriptDomErrorCaptured = true;
 			}
 		});
 	}
@@ -337,14 +341,14 @@
 	var PIP_CAPTION_SELECTOR = "div[role=\"region\"][tabindex=\"0\"]";
 	var pipObserver;
 	function attachPipObserver(pipDoc) {
-		if (state$1.pipObserverAttached) return;
+		if (state.pipObserverAttached) return;
 		const findAndAttach = () => {
 			const captionEl = pipDoc.querySelector(PIP_CAPTION_SELECTOR);
 			if (!captionEl) return false;
 			pipObserver = new MutationObserver(transcriptMutationCallback);
 			pipObserver.observe(captionEl, mutationConfig);
-			state$1.pipObserverAttached = true;
-			state$1.transcriptTargetBuffer = captionEl;
+			state.pipObserverAttached = true;
+			state.transcriptTargetBuffer = captionEl;
 			log.info("PiP entered — attaching caption observer");
 			insertGapMarker();
 			return true;
@@ -361,7 +365,7 @@
 	function detachPipObserver() {
 		pipObserver?.disconnect();
 		pipObserver = void 0;
-		state$1.pipObserverAttached = false;
+		state.pipObserverAttached = false;
 	}
 	function initializePipCapture() {
 		const dpip = window.documentPictureInPicture;
@@ -370,7 +374,7 @@
 			return;
 		}
 		dpip.addEventListener("enter", (event) => {
-			if (state$1.hasMeetingEnded) return;
+			if (state.hasMeetingEnded) return;
 			attachPipObserver(event.window.document);
 		});
 		dpip.addEventListener("leave", () => {
@@ -382,9 +386,9 @@
 	//#endregion
 	//#region src/content/observer/chat-observer.ts
 	function pushUniqueChatBlock(chatBlock) {
-		if (!state$1.chatMessages.some((item) => item.personName === chatBlock.personName && item.text === chatBlock.text)) {
+		if (!state.chatMessages.some((item) => item.personName === chatBlock.personName && item.text === chatBlock.text)) {
 			log.debug("Chat message captured");
-			state$1.chatMessages.push(chatBlock);
+			state.chatMessages.push(chatBlock);
 			persistStateFields(["chatMessages"]);
 		}
 	}
@@ -406,11 +410,11 @@
 			const anyTarget = _mutationsList[0]?.target;
 			const chatRoot = (anyTarget ? anyTarget.ownerDocument ?? document : document).querySelector(`div[aria-live="polite"].Ge9Kpc`);
 			if (!chatRoot) return;
-			const parsed = parseChatFromRoot(chatRoot, state$1.userName);
+			const parsed = parseChatFromRoot(chatRoot, state.userName);
 			if (parsed) pushUniqueChatBlock(parsed);
 		} catch (err) {
-			if (!state$1.isChatMessagesDomErrorCaptured && !state$1.hasMeetingEnded) handleContentError("006", err);
-			state$1.isChatMessagesDomErrorCaptured = true;
+			if (!state.isChatMessagesDomErrorCaptured && !state.hasMeetingEnded) handleContentError("006", err);
+			state.isChatMessagesDomErrorCaptured = true;
 		}
 	}
 	//#endregion
@@ -475,7 +479,9 @@
 			this.state = state;
 			this._storage = _storage;
 			this.observerManager = new ObserverManager(state, adapter.captionContainerSelector);
-			this.handlePageHide = () => this.end("page_unload");
+			this.handlePageHide = () => {
+				if (!this.state.pipObserverAttached) this.end("page_unload");
+			};
 			this.handleVisibilityChange = () => this.observerManager.reattachTranscriptIfDisconnected();
 		}
 		async start() {
@@ -632,7 +638,6 @@
 	};
 	//#endregion
 	//#region src/platforms/google-meet/index.ts
-	var state = createSessionState();
 	function checkExtensionStatus() {
 		return new Promise((resolve) => {
 			state.extensionStatusJSON = {

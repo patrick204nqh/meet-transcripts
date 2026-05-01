@@ -32,15 +32,30 @@ export function transcriptMutationCallback(mutationsList: MutationRecord[]): voi
       if (mutation.type === "characterData") {
         const mutationTargetElement = (mutation.target as Text).parentElement
         const transcriptUIBlocks = [...(mutationTargetElement?.parentElement?.parentElement?.children ?? [])]
-        const isLastButSecondElement = transcriptUIBlocks[transcriptUIBlocks.length - 3] === mutationTargetElement?.parentElement
 
-        if (isLastButSecondElement) {
+        // Primary (main window): Meet renders the active block at [length-3].
+        // Shorter lists (< 3 blocks) fall back to [length-1].
+        const activeIndex = transcriptUIBlocks.length >= 3 ? transcriptUIBlocks.length - 3 : transcriptUIBlocks.length - 1
+        const isAtPosition = transcriptUIBlocks[activeIndex] === mutationTargetElement?.parentElement
+
+        // Fallback (PiP): when the position check fails in PiP mode, the PiP DOM
+        // places the person-name as the preceding sibling of the text element directly,
+        // so trust that structure instead of the sibling-count heuristic.
+        const precedingSibling = mutationTargetElement?.previousSibling as Element | null
+        const isActiveBlock = isAtPosition ||
+          (state.pipObserverAttached && !!precedingSibling?.textContent?.trim())
+
+        log.debug("Transcript mutation — blocks:", transcriptUIBlocks.length, "activeIndex:", activeIndex,
+          "positioned:", isAtPosition, "pip-fallback:", !isAtPosition && state.pipObserverAttached)
+
+        if (isActiveBlock) {
           const currentPersonName = (mutationTargetElement?.previousSibling as Element | null)?.textContent
           const currentTranscriptText = mutationTargetElement?.textContent
 
           if (currentPersonName && currentTranscriptText) {
-            // Dim down current transcript block
-            Array.from(transcriptUIBlocks[transcriptUIBlocks.length - 3]?.children ?? []).forEach((item) => {
+            // Dim down current transcript block (use parentElement directly in PiP fallback)
+            const blockToDim = isAtPosition ? transcriptUIBlocks[activeIndex] : mutationTargetElement?.parentElement
+            Array.from(blockToDim?.children ?? []).forEach((item) => {
               item.setAttribute("style", "opacity:0.2")
             })
 
