@@ -2,7 +2,8 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  workers: 1,
+  // CI gets one worker (extension load is serial-safe there); locally use hardware parallelism
+  workers: process.env.CI ? 1 : undefined,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {

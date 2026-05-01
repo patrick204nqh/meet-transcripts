@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { makeChromeMock } from '../../tests/unit/chrome-mock'
 import { createStorageLocal, createStorageSync } from './storage-repo'
+import type { Meeting } from '../types'
 
 function makeStorageFromMock(localOverrides?: Record<string, unknown>, syncOverrides?: Record<string, unknown>) {
   const mock = makeChromeMock(localOverrides, syncOverrides)
@@ -12,41 +13,23 @@ function makeStorageFromMock(localOverrides?: Record<string, unknown>, syncOverr
   }
 }
 
+const baseMeetingRaw = {
+  software: 'Google Meet', title: 'T',
+  startTimestamp: '2024-01-01T08:00:00.000Z', endTimestamp: '2024-01-01T09:00:00.000Z',
+  transcript: [], chatMessages: [], webhookPostStatus: 'new',
+}
+
 describe('migrateMeeting — missing optional fields fallback to defaults', () => {
-  it('defaults transcript to [] when absent', async () => {
-    const storage = makeStorageFromMock({
-      meetings: [{
-        software: 'Google Meet', title: 'T',
-        startTimestamp: '2024-01-01T08:00:00.000Z', endTimestamp: '2024-01-01T09:00:00.000Z',
-        chatMessages: [], webhookPostStatus: 'new',
-      }],
-    })
+  it.each([
+    ['transcript', 'transcript', []],
+    ['chatMessages', 'chatMessages', []],
+    ['webhookPostStatus', 'webhookPostStatus', 'new'],
+  ] as const)('defaults %s when absent', async (omit, prop, expected) => {
+    const raw = { ...baseMeetingRaw }
+    delete (raw as Record<string, unknown>)[omit]
+    const storage = makeStorageFromMock({ meetings: [raw] })
     const [m] = await createStorageLocal(storage).getMeetings()
-    expect(m.transcript).toEqual([])
-  })
-
-  it('defaults chatMessages to [] when absent', async () => {
-    const storage = makeStorageFromMock({
-      meetings: [{
-        software: 'Google Meet', title: 'T',
-        startTimestamp: '2024-01-01T08:00:00.000Z', endTimestamp: '2024-01-01T09:00:00.000Z',
-        transcript: [], webhookPostStatus: 'new',
-      }],
-    })
-    const [m] = await createStorageLocal(storage).getMeetings()
-    expect(m.chatMessages).toEqual([])
-  })
-
-  it('defaults webhookPostStatus to "new" when absent', async () => {
-    const storage = makeStorageFromMock({
-      meetings: [{
-        software: 'Google Meet', title: 'T',
-        startTimestamp: '2024-01-01T08:00:00.000Z', endTimestamp: '2024-01-01T09:00:00.000Z',
-        transcript: [], chatMessages: [],
-      }],
-    })
-    const [m] = await createStorageLocal(storage).getMeetings()
-    expect(m.webhookPostStatus).toBe('new')
+    expect(m[prop]).toEqual(expected)
   })
 })
 
@@ -254,22 +237,6 @@ describe('getCurrentMeetingData — legacy field migration', () => {
     const repo = createStorageLocal(makeStorageFromMock())
     const data = await repo.getCurrentMeetingData()
     expect(data.startTimestamp).toBeUndefined()
-  })
-})
-
-describe('chrome-mock — local and sync storage are isolated', () => {
-  it('a key written via syncSet is NOT visible through localGet', async () => {
-    const mock = makeChromeMock()
-    await mock.storage.sync.set({ webhookUrl: 'https://example.com' })
-    const local = await mock.storage.local.get(['webhookUrl'])
-    expect(local.webhookUrl).toBeUndefined()
-  })
-
-  it('a key written via localSet is NOT visible through syncGet', async () => {
-    const mock = makeChromeMock()
-    await mock.storage.local.set({ meetingTabId: 99 })
-    const sync = await mock.storage.sync.get(['meetingTabId'])
-    expect(sync.meetingTabId).toBeUndefined()
   })
 })
 

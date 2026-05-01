@@ -1,34 +1,5 @@
 import { test, expect } from './fixtures/extension.js';
-
-const MOCK_MEETINGS = [
-  {
-    software: 'Google Meet',
-    title: 'Q2 Product Review',
-    startTimestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    endTimestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    transcript: [],
-    chatMessages: [],
-    webhookPostStatus: 'successful',
-  },
-  {
-    software: 'Google Meet',
-    title: '1:1 with Manager',
-    startTimestamp: new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString(),
-    endTimestamp: new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString(),
-    transcript: [],
-    chatMessages: [],
-    webhookPostStatus: 'failed',
-  },
-  {
-    software: 'Google Meet',
-    title: 'Design Review',
-    startTimestamp: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-    endTimestamp: new Date(Date.now() - 70.5 * 60 * 60 * 1000).toISOString(),
-    transcript: [],
-    chatMessages: [],
-    webhookPostStatus: 'new',
-  },
-];
+import { MOCK_MEETINGS } from './fixtures/mock-data.js';
 
 async function seedMeetings(page, meetings) {
   await page.evaluate((data) => {

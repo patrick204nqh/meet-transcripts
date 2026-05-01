@@ -20,7 +20,6 @@ describe('buildTranscriptFilename', () => {
 
   it('replaces characters illegal in filenames', () => {
     const result = buildTranscriptFilename({ ...base, title: 'Q4: Budget / Plan? <Final>' })
-    // Only the title-derived portion should have illegal chars replaced — the directory separator is expected
     const filenameOnly = result.split('/').pop()!
     expect(filenameOnly).not.toMatch(/[/:?<>]/)
     expect(result).toContain('Q4_')
@@ -53,61 +52,39 @@ describe('buildWebhookBody', () => {
     expect(body.webhookBodyType).toBe('advanced')
     expect(Array.isArray(body.transcript)).toBe(true)
   })
+
+  it.each([
+    ['simple', 'simple'],
+    ['advanced', 'advanced'],
+  ] as const)('%s body — undefined software and title default to empty string', (_, bodyType) => {
+    const bare: Meeting = { ...base, software: undefined as unknown as Meeting['software'], title: undefined }
+    const body = buildWebhookBody(bare, bodyType)
+    expect(body.software).toBe('')
+    expect(body.title).toBe('')
+  })
 })
 
-describe('getTranscriptString', () => {
-  it('returns empty string for empty transcript', () => {
-    expect(getTranscriptString([])).toBe('')
+// Both functions share the same input shape and formatting contract — tested together.
+describe.each([
+  ['getTranscriptString', getTranscriptString],
+  ['getChatMessagesString', getChatMessagesString],
+] as const)('%s', (_, fn) => {
+  it('returns empty string for empty input', () => {
+    expect(fn([])).toBe('')
   })
 
-  it('formats each block as "Name (timestamp)\\ntext\\n\\n"', () => {
-    const result = getTranscriptString([
-      { personName: 'Bob', timestamp: '2024-01-01T09:00:00.000Z', text: 'Hey' },
-    ])
+  it('formats a block with speaker name and text', () => {
+    const result = fn([{ personName: 'Bob', timestamp: '2024-01-01T09:00:00.000Z', text: 'Hey' }])
     expect(result).toContain('Bob')
     expect(result).toContain('Hey')
   })
-})
 
-describe('getChatMessagesString', () => {
-  it('returns empty string for empty chat messages', () => {
-    expect(getChatMessagesString([])).toBe('')
-  })
-
-  it('formats each message as "Name (timestamp)\\ntext\\n\\n"', () => {
-    const result = getChatMessagesString([
-      { personName: 'Carol', timestamp: '2024-01-01T09:00:00.000Z', text: 'Agreed' },
-    ])
-    expect(result).toContain('Carol')
-    expect(result).toContain('Agreed')
-  })
-
-  it('joins multiple messages', () => {
-    const result = getChatMessagesString([
+  it('joins multiple entries', () => {
+    const result = fn([
       { personName: 'Alice', timestamp: '2024-01-01T09:00:00.000Z', text: 'First' },
       { personName: 'Bob', timestamp: '2024-01-01T09:01:00.000Z', text: 'Second' },
     ])
     expect(result).toContain('Alice')
     expect(result).toContain('Bob')
-  })
-})
-
-describe('buildWebhookBody — undefined software and title fallback', () => {
-  const bare: Meeting = {
-    ...base,
-    software: undefined as unknown as Meeting['software'],
-    title: undefined,
-  }
-
-  it('simple body — software and title default to empty string', () => {
-    const body = buildWebhookBody(bare, 'simple')
-    expect(body.software).toBe('')
-    expect(body.title).toBe('')
-  })
-
-  it('advanced body — software and title default to empty string', () => {
-    const body = buildWebhookBody(bare, 'advanced')
-    expect(body.software).toBe('')
-    expect(body.title).toBe('')
   })
 })

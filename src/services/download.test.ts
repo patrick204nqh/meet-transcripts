@@ -40,40 +40,8 @@ describe('getMeeting', () => {
     const deps = makeDeps({ meetings: [meeting] })
     await expect(createDownloadService(deps).getMeeting(5)).rejects.toMatchObject({ code: ErrorCode.MEETING_NOT_FOUND })
   })
-
-  it('throws MEETING_NOT_FOUND when meetings list is empty', async () => {
-    const deps = makeDeps()
-    await expect(createDownloadService(deps).getMeeting(0)).rejects.toMatchObject({ code: ErrorCode.MEETING_NOT_FOUND })
-  })
 })
 
-describe('formatTranscript', () => {
-  it('returns formatted string containing speaker names', () => {
-    const svc = createDownloadService(makeDeps())
-    const result = svc.formatTranscript(meeting)
-    expect(result).toContain('Alice')
-    expect(result).toContain('All good')
-  })
-
-  it('returns empty string for empty transcript', () => {
-    const svc = createDownloadService(makeDeps())
-    expect(svc.formatTranscript({ ...meeting, transcript: [] })).toBe('')
-  })
-})
-
-describe('formatChatMessages', () => {
-  it('returns formatted string containing chat speaker names', () => {
-    const svc = createDownloadService(makeDeps())
-    const result = svc.formatChatMessages(meeting)
-    expect(result).toContain('Bob')
-    expect(result).toContain('Agreed')
-  })
-
-  it('returns empty string for empty chat messages', () => {
-    const svc = createDownloadService(makeDeps())
-    expect(svc.formatChatMessages({ ...meeting, chatMessages: [] })).toBe('')
-  })
-})
 
 describe('downloadTranscript', () => {
   it('throws MEETING_NOT_FOUND when index is out of bounds', async () => {

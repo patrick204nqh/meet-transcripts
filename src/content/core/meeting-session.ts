@@ -77,9 +77,7 @@ export class MeetingSession {
     try {
       const captionsReady = await this.adapter.waitForCaptionsReady()
 
-      const { operationMode } = await new Promise<{ operationMode?: string }>(resolve =>
-        chrome.storage.sync.get(["operationMode"], resolve)
-      )
+      const { operationMode } = (await chrome.storage.sync.get(["operationMode"])) as { operationMode?: string }
       const isManual = operationMode === "manual"
 
       if (isManual) {

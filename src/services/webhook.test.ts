@@ -71,8 +71,7 @@ describe('postWebhook — success path', () => {
       makeOkFetch(),
     )
     const result = await createWebhookService(deps).postWebhook(0)
-    expect(typeof result).toBe('string')
-    expect(result.length).toBeGreaterThan(0)
+    expect(result).toBe('Webhook posted successfully')
   })
 
   it('marks meeting webhookPostStatus as "successful" after 2xx', async () => {
@@ -100,7 +99,7 @@ describe('postWebhook — success path', () => {
     const fetchMock = makeOkFetch()
     const deps = makeDeps({ meetings: [meeting] }, { webhookUrl: 'https://hooks.example.com' }, fetchMock)
     await createWebhookService(deps).postWebhook(0)
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    const body = JSON.parse(((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]).body as string)
     expect(body.webhookBodyType).toBe('simple')
   })
 
@@ -112,7 +111,7 @@ describe('postWebhook — success path', () => {
       fetchMock,
     )
     await createWebhookService(deps).postWebhook(0)
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
+    const body = JSON.parse(((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]).body as string)
     expect(body.webhookBodyType).toBe('advanced')
     expect(Array.isArray(body.transcript)).toBe(true)
   })

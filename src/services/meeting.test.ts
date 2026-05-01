@@ -90,8 +90,7 @@ describe('pickupLastMeeting', () => {
       chatMessages: [],
     })
     const result = await createMeetingService(deps).pickupLastMeeting()
-    expect(typeof result).toBe('string')
-    expect(result.length).toBeGreaterThan(0)
+    expect(result).toBe('Last meeting picked up')
   })
 })
 
