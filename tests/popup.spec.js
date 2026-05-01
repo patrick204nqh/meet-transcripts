@@ -7,11 +7,11 @@ test.describe('Popup', () => {
 
   test('renders expected page structure', async ({ page }) => {
     await expect(page.locator('h1')).toHaveText('Meet Transcripts');
-    await expect(page.locator('.status-bar')).toBeVisible();
+    await expect(page.locator('#status-dot')).toBeVisible();
     await expect(page.locator('#auto-mode')).toBeVisible();
     await expect(page.locator('#manual-mode')).toBeVisible();
-    await expect(page.locator('a[href="./meetings.html"]')).toBeVisible();
-    await expect(page.locator('a[href="meetings.html#webhooks"]')).toBeVisible();
+    await expect(page.locator('a[href="meetings.html"]')).toBeVisible();
+    await expect(page.locator('a[href="settings.html"]')).toBeVisible();
     await expect(page.locator('#enable-teams')).toHaveCount(0);
     await expect(page.locator('#enable-zoom')).toHaveCount(0);
   });
@@ -32,5 +32,14 @@ test.describe('Popup', () => {
     await page.reload();
     await expect(page.locator('#manual-mode')).toBeChecked();
     await expect(page.locator('#auto-mode')).not.toBeChecked();
+  });
+
+  test('shows idle status when not on Google Meet', async ({ page }) => {
+    await expect(page.locator('#status-dot')).toHaveClass(/idle/);
+    await expect(page.locator('#status-label')).toHaveText('Open a Google Meet to start');
+  });
+
+  test('status meeting row is hidden in idle state', async ({ page }) => {
+    await expect(page.locator('#status-meeting')).toBeHidden();
   });
 });

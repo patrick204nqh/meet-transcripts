@@ -31,7 +31,9 @@
 	//#region src/shared/logger.ts
 	var PREFIX = "[meet-transcripts]";
 	var log = {
-		debug: (...a) => {},
+		debug: (...a) => {
+			console.debug(PREFIX, ...a);
+		},
 		info: (...a) => {
 			console.info(PREFIX, ...a);
 		},
@@ -184,53 +186,97 @@
 	}
 	//#endregion
 	//#region src/services/download.ts
-	var DownloadService = {
-		downloadTranscript: async (index) => {
-			const meetings = await StorageLocal.getMeetings();
-			if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
-			const meeting = meetings[index];
-			const fileName = buildTranscriptFilename(meeting);
-			let content = getTranscriptString(meeting.transcript);
-			content += `\n\n---------------\nCHAT MESSAGES\n---------------\n\n`;
-			content += getChatMessagesString(meeting.chatMessages);
-			content += "\n\n---------------\n";
-			content += "Transcript saved using meet-transcripts (https://github.com/patrick204nqh/meet-transcripts)";
-			content += "\n---------------";
-			await new Promise((resolve, reject) => {
+	function createDownloadService(deps) {
+		return {
+			getMeeting: async (index) => {
+				const meeting = (await deps.storageLocal.getMeetings())[index];
+				if (!meeting) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
+				return meeting;
+			},
+			formatTranscript: (meeting) => getTranscriptString(meeting.transcript),
+			formatChatMessages: (meeting) => getChatMessagesString(meeting.chatMessages),
+			downloadTranscript: async (index) => {
+				const meetings = await deps.storageLocal.getMeetings();
+				if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
+				const meeting = meetings[index];
+				const filename = buildTranscriptFilename(meeting);
+				let content = getTranscriptString(meeting.transcript);
+				content += `\n\n---------------\nCHAT MESSAGES\n---------------\n\n`;
+				content += getChatMessagesString(meeting.chatMessages);
+				content += "\n\n---------------\n";
+				content += "Transcript saved using meet-transcripts (https://github.com/patrick204nqh/meet-transcripts)";
+				content += "\n---------------";
 				const blob = new Blob([content], { type: "text/plain" });
-				const reader = new FileReader();
-				reader.readAsDataURL(blob);
-				reader.onload = (event) => {
-					if (!event.target?.result) {
-						reject(new ExtensionError(ErrorCode.BLOB_READ_FAILED, "Failed to read blob", "STORAGE"));
-						return;
-					}
-					const dataUrl = event.target.result;
-					chrome.downloads.download({
-						url: dataUrl,
-						filename: fileName,
-						conflictAction: "uniquify"
-					}).then(() => resolve()).catch(() => {
-						chrome.downloads.download({
-							url: dataUrl,
-							filename: "meet-transcripts/Transcript.txt",
-							conflictAction: "uniquify"
-						});
-						resolve();
-					});
-				};
+				const dataUrl = await deps.blobToDataUrl(blob);
+				await deps.triggerDownload({
+					url: dataUrl,
+					filename,
+					conflictAction: "uniquify"
+				});
+			}
+		};
+	}
+	function blobToDataUrl(blob) {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.readAsDataURL(blob);
+			reader.onload = (event) => {
+				if (!event.target?.result) {
+					reject(new ExtensionError(ErrorCode.BLOB_READ_FAILED, "Failed to read blob", "STORAGE"));
+					return;
+				}
+				resolve(event.target.result);
+			};
+		});
+	}
+	async function triggerDownload(opts) {
+		await chrome.downloads.download(opts).catch(() => {
+			chrome.downloads.download({
+				url: opts.url,
+				filename: "meet-transcripts/Transcript.txt",
+				conflictAction: "uniquify"
 			});
-		},
-		formatTranscript: (meeting) => getTranscriptString(meeting.transcript),
-		formatChatMessages: (meeting) => getChatMessagesString(meeting.chatMessages),
-		getMeeting: async (index) => {
-			const meeting = (await StorageLocal.getMeetings())[index];
-			if (!meeting) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
-			return meeting;
-		}
-	};
+		});
+	}
+	var DownloadService = createDownloadService({
+		storageLocal: StorageLocal,
+		blobToDataUrl,
+		triggerDownload
+	});
 	//#endregion
 	//#region src/services/webhook.ts
+	function createWebhookService(deps) {
+		return { postWebhook: async (index) => {
+			const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([deps.storageLocal.getMeetings(), deps.storageSync.getWebhookSettings()]);
+			if (!webhookUrl) throw new ExtensionError(ErrorCode.NO_WEBHOOK_URL, "No webhook URL configured", "NETWORK");
+			if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
+			if (!await deps.hasHostPermission(webhookUrl)) throw new ExtensionError(ErrorCode.NO_HOST_PERMISSION, "No host permission for webhook URL. Re-save the webhook URL to grant permission.", "PERMISSION");
+			const meeting = meetings[index];
+			const webhookData = buildWebhookBody(meeting, webhookBodyType === "advanced" ? "advanced" : "simple");
+			const response = await deps.fetch(webhookUrl, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(webhookData)
+			}).catch((error) => {
+				throw new ExtensionError(ErrorCode.WEBHOOK_REQUEST_FAILED, String(error), "NETWORK");
+			});
+			if (!response.ok) {
+				const withFailed = meetings.map((m, i) => i === index ? {
+					...m,
+					webhookPostStatus: "failed"
+				} : m);
+				await deps.storageLocal.setMeetings(withFailed);
+				deps.notify("Could not post webhook!", `HTTP ${response.status} ${response.statusText}. Click to view and retry.`);
+				throw new ExtensionError(ErrorCode.WEBHOOK_REQUEST_FAILED, `HTTP ${response.status} ${response.statusText}`, "NETWORK");
+			}
+			const withSuccess = meetings.map((m, i) => i === index ? {
+				...m,
+				webhookPostStatus: "successful"
+			} : m);
+			await deps.storageLocal.setMeetings(withSuccess);
+			return "Webhook posted successfully";
+		} };
+	}
 	var notificationClickTargets = /* @__PURE__ */ new Set();
 	function registerNotificationClickListener() {
 		if (!chrome.notifications?.onClicked) return;
@@ -241,97 +287,85 @@
 			}
 		});
 	}
-	chrome.permissions.contains({ permissions: ["notifications"] }, (has) => {
+	if (typeof chrome !== "undefined" && chrome.permissions?.contains) chrome.permissions.contains({ permissions: ["notifications"] }, (has) => {
 		if (has) registerNotificationClickListener();
 	});
-	chrome.permissions.onAdded.addListener((permissions) => {
+	if (typeof chrome !== "undefined" && chrome.permissions?.onAdded) chrome.permissions.onAdded.addListener((permissions) => {
 		if (permissions.permissions?.includes("notifications")) registerNotificationClickListener();
 	});
-	var WebhookService = { postWebhook: async (index) => {
-		const [meetings, { webhookUrl, webhookBodyType }] = await Promise.all([StorageLocal.getMeetings(), StorageSync.getWebhookSettings()]);
-		if (!webhookUrl) throw new ExtensionError(ErrorCode.NO_WEBHOOK_URL, "No webhook URL configured", "NETWORK");
-		if (!meetings[index]) throw new ExtensionError(ErrorCode.MEETING_NOT_FOUND, "Meeting at specified index not found", "MEETING");
-		const urlObj = new URL(webhookUrl);
-		const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`;
-		if (!await new Promise((res) => chrome.permissions.contains({ origins: [originPattern] }, res))) throw new ExtensionError(ErrorCode.NO_HOST_PERMISSION, "No host permission for webhook URL. Re-save the webhook URL to grant permission.", "PERMISSION");
-		const meeting = meetings[index];
-		const webhookData = buildWebhookBody(meeting, webhookBodyType === "advanced" ? "advanced" : "simple");
-		const response = await fetch(webhookUrl, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(webhookData)
-		}).catch((error) => {
-			throw new ExtensionError(ErrorCode.WEBHOOK_REQUEST_FAILED, String(error), "NETWORK");
-		});
-		if (!response.ok) {
-			const withFailed = meetings.map((m, i) => i === index ? {
-				...m,
-				webhookPostStatus: "failed"
-			} : m);
-			await StorageLocal.setMeetings(withFailed);
+	var WebhookService = createWebhookService({
+		storageLocal: StorageLocal,
+		storageSync: StorageSync,
+		fetch: globalThis.fetch,
+		hasHostPermission: async (webhookUrl) => {
+			const urlObj = new URL(webhookUrl);
+			const originPattern = `${urlObj.protocol}//${urlObj.hostname}/*`;
+			return new Promise((res) => chrome.permissions.contains({ origins: [originPattern] }, res));
+		},
+		notify: (title, message) => {
 			chrome.notifications?.create({
 				type: "basic",
 				iconUrl: "icons/icon-128.png",
-				title: "Could not post webhook!",
-				message: `HTTP ${response.status} ${response.statusText}. Click to view and retry.`
+				title,
+				message
 			}, (notificationId) => {
 				notificationClickTargets.add(notificationId);
 			});
-			throw new ExtensionError(ErrorCode.WEBHOOK_REQUEST_FAILED, `HTTP ${response.status} ${response.statusText}`, "NETWORK");
 		}
-		const withSuccess = meetings.map((m, i) => i === index ? {
-			...m,
-			webhookPostStatus: "successful"
-		} : m);
-		await StorageLocal.setMeetings(withSuccess);
-		return "Webhook posted successfully";
-	} };
+	});
 	//#endregion
 	//#region src/services/meeting.ts
-	async function pickupLastMeeting() {
-		const data = await StorageLocal.getCurrentMeetingData();
-		if (!data.startTimestamp) throw new ExtensionError(ErrorCode.NO_MEETINGS, "No meetings found. May be attend one?", "MEETING");
-		if (!data.transcript?.length && !data.chatMessages?.length) throw new ExtensionError(ErrorCode.EMPTY_TRANSCRIPT, "Empty transcript and empty chatMessages", "MEETING");
-		const newEntry = {
-			software: data.software,
-			title: data.title,
-			startTimestamp: data.startTimestamp,
-			endTimestamp: (/* @__PURE__ */ new Date()).toISOString(),
-			transcript: data.transcript ?? [],
-			chatMessages: data.chatMessages ?? [],
-			webhookPostStatus: "new"
-		};
-		const updated = [...await StorageLocal.getMeetings(), newEntry].slice(-10);
-		await StorageLocal.setMeetings(updated);
-		console.log("Last meeting picked up");
-		return "Last meeting picked up";
-	}
-	async function finalizeMeeting() {
-		await pickupLastMeeting();
-		const meetings = await StorageLocal.getMeetings();
-		const sync = await StorageSync.getAutoActionSettings();
-		const lastIndex = meetings.length - 1;
-		const promises = [];
-		if (sync.autoDownloadFileAfterMeeting) promises.push(DownloadService.downloadTranscript(lastIndex));
-		if (sync.autoPostWebhookAfterMeeting && sync.webhookUrl) promises.push(WebhookService.postWebhook(lastIndex));
-		await Promise.all(promises);
-		return "Meeting processing complete";
-	}
-	async function recoverLastMeeting() {
-		const [meetings, data] = await Promise.all([StorageLocal.getMeetings(), StorageLocal.getCurrentMeetingData()]);
-		if (!data.startTimestamp) throw new ExtensionError(ErrorCode.NO_MEETINGS, "No meetings found. May be attend one?", "MEETING");
-		const lastSaved = meetings.length > 0 ? meetings[meetings.length - 1] : void 0;
-		if (!lastSaved || data.startTimestamp !== lastSaved.startTimestamp) {
-			await finalizeMeeting();
-			return "Recovered last meeting to the best possible extent";
+	function createMeetingService(deps) {
+		async function pickupLastMeeting() {
+			const data = await deps.storageLocal.getCurrentMeetingData();
+			if (!data.startTimestamp) throw new ExtensionError(ErrorCode.NO_MEETINGS, "No meetings found. May be attend one?", "MEETING");
+			if (!data.transcript?.length && !data.chatMessages?.length) throw new ExtensionError(ErrorCode.EMPTY_TRANSCRIPT, "Empty transcript and empty chatMessages", "MEETING");
+			const newEntry = {
+				software: data.software,
+				title: data.title,
+				startTimestamp: data.startTimestamp,
+				endTimestamp: (/* @__PURE__ */ new Date()).toISOString(),
+				transcript: data.transcript ?? [],
+				chatMessages: data.chatMessages ?? [],
+				webhookPostStatus: "new"
+			};
+			const updated = [...await deps.storageLocal.getMeetings(), newEntry].slice(-10);
+			await deps.storageLocal.setMeetings(updated);
+			return "Last meeting picked up";
 		}
-		return "No recovery needed";
+		async function finalizeMeeting() {
+			await pickupLastMeeting();
+			const meetings = await deps.storageLocal.getMeetings();
+			const sync = await deps.storageSync.getAutoActionSettings();
+			const lastIndex = meetings.length - 1;
+			const promises = [];
+			if (sync.autoDownloadFileAfterMeeting) promises.push(deps.downloadTranscript(lastIndex));
+			if (sync.autoPostWebhookAfterMeeting && sync.webhookUrl) promises.push(deps.postWebhook(lastIndex));
+			await Promise.all(promises);
+			return "Meeting processing complete";
+		}
+		async function recoverLastMeeting() {
+			const [meetings, data] = await Promise.all([deps.storageLocal.getMeetings(), deps.storageLocal.getCurrentMeetingData()]);
+			if (!data.startTimestamp) throw new ExtensionError(ErrorCode.NO_MEETINGS, "No meetings found. May be attend one?", "MEETING");
+			const lastSaved = meetings.length > 0 ? meetings[meetings.length - 1] : void 0;
+			if (!lastSaved || data.startTimestamp !== lastSaved.startTimestamp) {
+				await finalizeMeeting();
+				return "Recovered last meeting to the best possible extent";
+			}
+			return "No recovery needed";
+		}
+		return {
+			pickupLastMeeting,
+			finalizeMeeting,
+			recoverMeeting: recoverLastMeeting
+		};
 	}
-	var MeetingService = {
-		finalizeMeeting,
-		recoverMeeting: recoverLastMeeting,
-		pickupLastMeeting
-	};
+	var MeetingService = createMeetingService({
+		storageLocal: StorageLocal,
+		storageSync: StorageSync,
+		downloadTranscript: (i) => DownloadService.downloadTranscript(i),
+		postWebhook: (i) => WebhookService.postWebhook(i)
+	});
 	//#endregion
 	//#region src/background/lifecycle.ts
 	async function clearTabIdAndApplyUpdate() {
@@ -449,7 +483,7 @@
 		});
 	});
 	//#endregion
-	//#region src/background/message-handler.ts
+	//#region src/background/index.ts
 	var ok = {
 		success: true,
 		data: void 0

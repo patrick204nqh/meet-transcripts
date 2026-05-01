@@ -41,24 +41,13 @@ async function seedMeetings(page, meetings) {
 test.describe('Meetings page', () => {
   test.beforeEach(async ({ page, extensionId }) => {
     await page.goto(`chrome-extension://${extensionId}/meetings.html`);
-    await page.evaluate(() => new Promise(resolve =>
-      chrome.storage.sync.set({
-        autoPostWebhookAfterMeeting: true,
-        autoDownloadFileAfterMeeting: true,
-        webhookBodyType: 'simple',
-        operationMode: 'auto',
-      }, resolve)
-    ));
-    await page.reload();
   });
 
   test('renders expected page structure', async ({ page }) => {
     await expect(page.locator('h1')).toHaveText('Meet Transcripts');
     await expect(page.locator('#last-10-meetings h2')).toHaveText('Last 10 meetings');
     await expect(page.locator('#recover-last-meeting')).toBeVisible();
-    await expect(page.locator('#webhooks h2')).toHaveText('Webhooks');
-    await expect(page.locator('#webhook-url')).toBeVisible();
-    await expect(page.locator('#save-webhook')).toBeVisible();
+    await expect(page.locator('a[href="settings.html"]')).toBeVisible();
     const headers = page.locator('table thead th');
     await expect(headers.nth(0)).toHaveText('Meeting title');
     await expect(headers.nth(1)).toHaveText('Meeting software');
@@ -66,37 +55,13 @@ test.describe('Meetings page', () => {
     await expect(headers.nth(3)).toHaveText('Webhook status');
   });
 
+  test('webhooks config is not present on meetings page (moved to settings)', async ({ page }) => {
+    await expect(page.locator('#webhook-url')).toHaveCount(0);
+    await expect(page.locator('#save-webhook')).toHaveCount(0);
+  });
+
   test('shows empty state message when no meetings are stored', async ({ page }) => {
     await expect(page.locator('#meetings-table')).toContainText('Your next meeting will appear here');
-  });
-
-  test('webhook configuration defaults — auto-post checked, simple body selected', async ({ page }) => {
-    await expect(page.locator('#auto-post-webhook')).toBeChecked();
-    await expect(page.locator('#simple-webhook-body')).toBeChecked();
-    await expect(page.locator('#advanced-webhook-body')).not.toBeChecked();
-    await expect(page.locator('#auto-download-file')).toBeVisible();
-  });
-
-  test('can switch between Simple and Advanced webhook body', async ({ page }) => {
-    await page.locator('#advanced-webhook-body').check();
-    await expect(page.locator('#advanced-webhook-body')).toBeChecked();
-    await expect(page.locator('#simple-webhook-body')).not.toBeChecked();
-
-    await page.locator('#simple-webhook-body').check();
-    await expect(page.locator('#simple-webhook-body')).toBeChecked();
-    await expect(page.locator('#advanced-webhook-body')).not.toBeChecked();
-  });
-
-  test('webhook URL persists after save and page reload', async ({ page }) => {
-    const url = 'https://hooks.example.com/my-webhook';
-    // Headless Chrome auto-denies chrome.permissions.request() — stub it so the save flow completes
-    await page.evaluate(() => {
-      chrome.permissions.request = async () => true;
-    });
-    await page.locator('#webhook-url').fill(url);
-    await page.locator('#save-webhook').click();
-    await page.reload();
-    await expect(page.locator('#webhook-url')).toHaveValue(url);
   });
 
   test('renders a row for each seeded meeting with correct titles', async ({ page }) => {
@@ -132,12 +97,11 @@ test.describe('Meetings page', () => {
 
   test('download button sends download_transcript_at_index message', async ({ page }) => {
     await seedMeetings(page, MOCK_MEETINGS);
-    const sentMessages = await page.evaluate(() => {
+    await page.evaluate(() => {
       const msgs = [];
       const original = chrome.runtime.sendMessage.bind(chrome.runtime);
       chrome.runtime.sendMessage = (msg, cb) => { msgs.push(msg); if (cb) cb({ success: true }); };
       window.__sentMessages = msgs;
-      return msgs;
     });
     await page.locator('.download-button').first().click();
     const messages = await page.evaluate(() => window.__sentMessages);

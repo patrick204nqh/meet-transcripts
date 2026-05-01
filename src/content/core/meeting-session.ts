@@ -2,7 +2,7 @@ import type { AppState, MeetingEndReason } from '../../types'
 import type { IPlatformAdapter } from '../../platforms/types'
 import type { IBrowserStorage } from '../../browser/types'
 import { log } from '../../shared/logger'
-import { showNotification, handleContentError, waitForElement } from '../ui'
+import { showNotification, handleContentError, waitForElement, waitForPageVisible } from '../ui'
 import { persistStateFields, persistStateAndSignalEnd } from '../state-sync'
 import { pushBufferToTranscript } from '../observer/transcript-observer'
 import { detachPipObserver } from '../pip-capture'
@@ -39,6 +39,11 @@ export class MeetingSession {
     window.addEventListener("pagehide", this.handlePageHide)
     this.wireEndButton()
 
+    // Wait for the tab to be visible before triggering CC and chat button clicks.
+    // Those clicks cause Meet to make fetches through its own service worker, which
+    // can be in its activation window right after navigation and will reject them.
+    await waitForPageVisible()
+
     await Promise.allSettled([
       this.setupTranscript(),
       this.setupChat(),
@@ -69,25 +74,39 @@ export class MeetingSession {
   private async setupTranscript(): Promise<void> {
     try {
       const captionsReady = await this.adapter.waitForCaptionsReady()
-      chrome.storage.sync.get(["operationMode"], (result: { operationMode?: string }) => {
-        if (result.operationMode === "manual") {
-          log.info("Manual mode — leaving captions off")
-        } else {
-          this.adapter.enableCaptions(captionsReady)
-        }
-      })
-      const captionNode = await waitForElement(this.adapter.captionContainerSelector)
+
+      const { operationMode } = await new Promise<{ operationMode?: string }>(resolve =>
+        chrome.storage.sync.get(["operationMode"], resolve)
+      )
+      const isManual = operationMode === "manual"
+
+      if (isManual) {
+        log.info("Manual mode — leaving captions off")
+      } else {
+        this.adapter.enableCaptions(captionsReady)
+      }
+
+      let captionNode = await waitForElement(this.adapter.captionContainerSelector)
+
+      if (!captionNode && !isManual) {
+        // Meet's service worker may have dropped the fetch triggered by the first
+        // click. Re-click once after a short settle window and try again.
+        log.warn("Caption container not found after first attempt — retrying once")
+        await new Promise<void>(r => setTimeout(r, 2000))
+        this.adapter.enableCaptions(captionsReady)
+        captionNode = await waitForElement(this.adapter.captionContainerSelector)
+      }
+
       if (!captionNode) throw new Error("Caption container not found in DOM")
+
       this.observerManager.attachTranscript(captionNode)
       this.observerManager.attachWatchdog()
 
-      chrome.storage.sync.get(["operationMode"], (result: { operationMode?: string }) => {
-        if (result.operationMode === "manual") {
-          showNotification({ status: 400, message: "<strong>meet-transcripts is not running</strong> <br /> Turn on captions using the CC icon, if needed" })
-        } else {
-          showNotification(this.state.extensionStatusJSON)
-        }
-      })
+      if (isManual) {
+        showNotification({ status: 400, message: "<strong>meet-transcripts is not running</strong> <br /> Turn on captions using the CC icon, if needed" })
+      } else {
+        showNotification(this.state.extensionStatusJSON)
+      }
     } catch (err) {
       this.state.isTranscriptDomErrorCaptured = true
       handleContentError("001", err)

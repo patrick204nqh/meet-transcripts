@@ -16,6 +16,7 @@ const SOURCE_FILES = [
   'platforms/google-meet.js',
   'popup.js',
   'meetings.js',
+  'settings.js',
 ];
 
 async function collectExternalRequests(page, extensionId, url) {

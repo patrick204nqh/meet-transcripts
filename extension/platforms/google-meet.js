@@ -51,7 +51,9 @@
 	//#region src/shared/logger.ts
 	var PREFIX = "[meet-transcripts]";
 	var log = {
-		debug: (...a) => {},
+		debug: (...a) => {
+			console.debug(PREFIX, ...a);
+		},
 		info: (...a) => {
 			console.info(PREFIX, ...a);
 		},
@@ -178,6 +180,20 @@
 	function handleContentError(code, err, notify = true) {
 		log.error(`Error ${code}:`, err);
 		if (notify) showNotification(bugStatusJson);
+	}
+	function waitForPageVisible() {
+		if (document.visibilityState === "visible") return Promise.resolve();
+		return new Promise((resolve) => {
+			const timer = setTimeout(resolve, 3e4);
+			const handler = () => {
+				if (document.visibilityState === "visible") {
+					clearTimeout(timer);
+					document.removeEventListener("visibilitychange", handler);
+					resolve();
+				}
+			};
+			document.addEventListener("visibilitychange", handler);
+		});
 	}
 	function msg(m) {
 		return {
@@ -473,6 +489,7 @@
 			document.addEventListener("visibilitychange", this.handleVisibilityChange);
 			window.addEventListener("pagehide", this.handlePageHide);
 			this.wireEndButton();
+			await waitForPageVisible();
 			await Promise.allSettled([this.setupTranscript(), this.setupChat()]);
 		}
 		captureTitle() {
@@ -497,21 +514,25 @@
 		async setupTranscript() {
 			try {
 				const captionsReady = await this.adapter.waitForCaptionsReady();
-				chrome.storage.sync.get(["operationMode"], (result) => {
-					if (result.operationMode === "manual") log.info("Manual mode — leaving captions off");
-					else this.adapter.enableCaptions(captionsReady);
-				});
-				const captionNode = await waitForElement(this.adapter.captionContainerSelector);
+				const { operationMode } = await new Promise((resolve) => chrome.storage.sync.get(["operationMode"], resolve));
+				const isManual = operationMode === "manual";
+				if (isManual) log.info("Manual mode — leaving captions off");
+				else this.adapter.enableCaptions(captionsReady);
+				let captionNode = await waitForElement(this.adapter.captionContainerSelector);
+				if (!captionNode && !isManual) {
+					log.warn("Caption container not found after first attempt — retrying once");
+					await new Promise((r) => setTimeout(r, 2e3));
+					this.adapter.enableCaptions(captionsReady);
+					captionNode = await waitForElement(this.adapter.captionContainerSelector);
+				}
 				if (!captionNode) throw new Error("Caption container not found in DOM");
 				this.observerManager.attachTranscript(captionNode);
 				this.observerManager.attachWatchdog();
-				chrome.storage.sync.get(["operationMode"], (result) => {
-					if (result.operationMode === "manual") showNotification({
-						status: 400,
-						message: "<strong>meet-transcripts is not running</strong> <br /> Turn on captions using the CC icon, if needed"
-					});
-					else showNotification(this.state.extensionStatusJSON);
+				if (isManual) showNotification({
+					status: 400,
+					message: "<strong>meet-transcripts is not running</strong> <br /> Turn on captions using the CC icon, if needed"
 				});
+				else showNotification(this.state.extensionStatusJSON);
 			} catch (err) {
 				this.state.isTranscriptDomErrorCaptured = true;
 				handleContentError("001", err);
