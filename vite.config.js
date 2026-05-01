@@ -4,10 +4,9 @@ export default defineConfig(({ mode }) => {
   const isDev = mode !== 'production'
 
   const extensionScripts = [
-    { entry: 'src/background/index.ts',           name: 'Background', output: 'background.js' },
-    { entry: 'src/pages/popup/index.ts',           name: 'Popup',       output: 'popup.js' },
-    { entry: 'src/pages/meetings/index.ts',       name: 'Meetings',    output: 'meetings.js' },
-    { entry: 'src/pages/settings/index.ts',       name: 'Settings',    output: 'settings.js' },
+    { entry: 'src/background/index.ts',  name: 'Background', output: 'background.js' },
+    { entry: 'src/pages/popup/index.ts', name: 'Popup',      output: 'popup.js' },
+    { entry: 'src/pages/app/index.ts',   name: 'App',        output: 'app.js' },
   ]
 
   function extensionScriptsBuild() {
