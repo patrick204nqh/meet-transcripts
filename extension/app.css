@@ -110,14 +110,16 @@ body {
 #view-settings > main { max-width: 760px; }
 
 /* ── Section / headings ── */
-section { margin-bottom: 2.5rem; }
+#view-meetings section { margin-bottom: 3rem; }
+#view-settings section { margin-bottom: 2rem; }
 
 h2 {
-  margin: 0 0 0.25rem;
-  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text);
 }
+
+#view-meetings h2 { margin: 0 0 0.25rem; font-size: 1.25rem; }
+#view-settings h2  { margin: 0 0 0.125rem; font-size: 1rem; }
 
 .section-header {
   display: flex;
