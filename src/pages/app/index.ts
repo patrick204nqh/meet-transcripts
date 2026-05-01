@@ -142,8 +142,8 @@ function loadMeetings(): void {
         new:        ['status-new',     'New'],
       }
       const [cls, label] = statusMap[meeting.webhookPostStatus] ?? ['status-new', 'Pending']
-      badge.classList.add(cls!)
-      badge.textContent = label!
+      badge.classList.add(cls)
+      badge.textContent = label
       tdStatus.appendChild(badge)
       row.appendChild(tdStatus)
 
