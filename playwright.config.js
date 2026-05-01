@@ -13,7 +13,7 @@ export default defineConfig({
     {
       name: 'e2e',
       testDir: './tests',
-      testIgnore: '**/screenshots/**',
+      testIgnore: ['**/screenshots/**', '**/unit/**'],
     },
     {
       name: 'screenshots',
