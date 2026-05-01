@@ -10,8 +10,7 @@ test.describe('Popup', () => {
     await expect(page.locator('#status-dot')).toBeVisible();
     await expect(page.locator('#auto-mode')).toBeVisible();
     await expect(page.locator('#manual-mode')).toBeVisible();
-    await expect(page.locator('a[href="meetings.html"]')).toBeVisible();
-    await expect(page.locator('a[href="settings.html"]')).toBeVisible();
+    await expect(page.locator('#open-app')).toBeVisible();
     await expect(page.locator('#enable-teams')).toHaveCount(0);
     await expect(page.locator('#enable-zoom')).toHaveCount(0);
   });
