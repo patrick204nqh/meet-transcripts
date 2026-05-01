@@ -56,8 +56,9 @@ test.describe('Meetings page', () => {
   });
 
   test('webhooks config is not present on meetings page (moved to settings)', async ({ page }) => {
-    await expect(page.locator('#webhook-url')).toHaveCount(0);
-    await expect(page.locator('#save-webhook')).toHaveCount(0);
+    // Elements live in the settings view panel which is hidden when meetings view is active
+    await expect(page.locator('#webhook-url')).toBeHidden();
+    await expect(page.locator('#save-webhook')).toBeHidden();
   });
 
   test('shows empty state message when no meetings are stored', async ({ page }) => {

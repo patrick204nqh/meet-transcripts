@@ -57,6 +57,15 @@
 		chrome.storage.onChanged.addListener((changes, area) => {
 			if (area === "local" && ("meetingTabId" in changes || "title" in changes)) updateStatus();
 		});
+		document.querySelector("#open-app")?.addEventListener("click", () => {
+			const appUrl = chrome.runtime.getURL("app.html");
+			chrome.tabs.query({ url: appUrl }, (tabs) => {
+				if (tabs.length > 0 && tabs[0]?.id !== void 0) {
+					chrome.tabs.update(tabs[0].id, { active: true });
+					if (tabs[0].windowId !== void 0) chrome.windows.update(tabs[0].windowId, { focused: true });
+				} else chrome.tabs.create({ url: `${appUrl}#meetings` });
+			});
+		});
 		const modeDescriptions = {
 			auto: "Captures every meeting automatically",
 			manual: "Manually decide when to start and stop capture"

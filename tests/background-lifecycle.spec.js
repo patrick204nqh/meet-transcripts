@@ -24,7 +24,7 @@ test.describe('Background lifecycle', () => {
   })
 
   test('new_meeting_started stores the sending tab ID', async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/meetings.html`)
+    await page.goto(`chrome-extension://${extensionId}/app.html#meetings`)
 
     // Clear any prior meetingTabId state
     await page.evaluate(() => new Promise((resolve) => chrome.storage.local.remove(['meetingTabId'], resolve)))
