@@ -1,10 +1,7 @@
 import { PROTOCOL_VERSION } from '../../shared/protocol'
-import type { Meeting, ErrorObject } from '../../types'
+import type { Meeting, ErrorObject, OperationMode, WebhookBodyType } from '../../types'
 
-const NO_MEETINGS = '013'
-const EMPTY_TRANSCRIPT = '014'
-
-let isMeetingsTableExpanded = false
+// ── Shared utilities ──────────────────────────────────────────────────────────
 
 function showToast(message: string, type: 'success' | 'error' | 'info' = 'info', duration = 4000): void {
   const container = document.getElementById('toast-container')
@@ -50,6 +47,42 @@ function requestWebhookPermission(url: string): Promise<void> {
     if (!granted) throw new Error('Permission denied')
   })
 }
+
+// ── Hash router ───────────────────────────────────────────────────────────────
+
+type ViewId = 'meetings' | 'settings'
+
+function activateView(viewId: ViewId): void {
+  document.querySelectorAll<HTMLElement>('.view').forEach(el => {
+    el.classList.remove('active')
+    el.hidden = true
+  })
+  document.querySelectorAll<HTMLButtonElement>('.tab-btn').forEach(btn => {
+    const isActive = btn.dataset['view'] === viewId
+    btn.classList.toggle('active', isActive)
+    btn.setAttribute('aria-selected', String(isActive))
+  })
+  const view = document.getElementById(`view-${viewId}`)
+  if (view) {
+    view.hidden = false
+    view.classList.add('active')
+  }
+  if (location.hash !== `#${viewId}`) {
+    history.replaceState(null, '', `#${viewId}`)
+  }
+}
+
+function resolveInitialView(): ViewId {
+  const hash = location.hash.replace('#', '')
+  return hash === 'settings' ? 'settings' : 'meetings'
+}
+
+// ── Meetings logic ────────────────────────────────────────────────────────────
+
+const NO_MEETINGS = '013'
+const EMPTY_TRANSCRIPT = '014'
+
+let isMeetingsTableExpanded = false
 
 function getDuration(startTimestamp: string, endTimestamp: string): string {
   const ms = new Date(endTimestamp).getTime() - new Date(startTimestamp).getTime()
@@ -109,8 +142,8 @@ function loadMeetings(): void {
         new:        ['status-new',     'New'],
       }
       const [cls, label] = statusMap[meeting.webhookPostStatus] ?? ['status-new', 'Pending']
-      badge.classList.add(cls!)
-      badge.textContent = label!
+      badge.classList.add(cls)
+      badge.textContent = label
       tdStatus.appendChild(badge)
       row.appendChild(tdStatus)
 
@@ -213,7 +246,7 @@ function loadMeetings(): void {
   })
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function initMeetings(): void {
   const recoverBtn = document.querySelector<HTMLButtonElement>('#recover-last-meeting')
   const showAllBtn = document.querySelector<HTMLButtonElement>('#show-all')
 
@@ -256,4 +289,128 @@ document.addEventListener('DOMContentLoaded', () => {
     showAllBtn.setAttribute('style', 'display:none;')
     isMeetingsTableExpanded = true
   })
+}
+
+// ── Settings logic ────────────────────────────────────────────────────────────
+
+function initSettings(): void {
+  // ── Mode toggle ──
+  const autoModeRadio = document.querySelector<HTMLInputElement>('#auto-mode')
+  const manualModeRadio = document.querySelector<HTMLInputElement>('#manual-mode')
+
+  chrome.storage.sync.get(['operationMode'], (result) => {
+    const mode = (result['operationMode'] as OperationMode | undefined) ?? 'auto'
+    if (autoModeRadio && manualModeRadio) {
+      if (mode === 'manual') {
+        manualModeRadio.checked = true
+      } else {
+        autoModeRadio.checked = true
+      }
+      autoModeRadio.addEventListener('change', () => chrome.storage.sync.set({ operationMode: 'auto' }))
+      manualModeRadio.addEventListener('change', () => chrome.storage.sync.set({ operationMode: 'manual' }))
+    }
+  })
+
+  // ── Automation checkboxes ──
+  const autoDownloadCheckbox = document.querySelector<HTMLInputElement>('#auto-download-file')
+  const autoPostCheckbox = document.querySelector<HTMLInputElement>('#auto-post-webhook')
+
+  chrome.storage.sync.get(['autoDownloadFileAfterMeeting', 'autoPostWebhookAfterMeeting'], (result) => {
+    if (autoDownloadCheckbox) {
+      autoDownloadCheckbox.checked = result['autoDownloadFileAfterMeeting'] !== false
+      autoDownloadCheckbox.addEventListener('change', () => {
+        chrome.storage.sync.set({ autoDownloadFileAfterMeeting: autoDownloadCheckbox.checked })
+      })
+    }
+    if (autoPostCheckbox) {
+      autoPostCheckbox.checked = !!(result['autoPostWebhookAfterMeeting'])
+      autoPostCheckbox.addEventListener('change', () => {
+        chrome.storage.sync.set({ autoPostWebhookAfterMeeting: autoPostCheckbox.checked })
+      })
+    }
+  })
+
+  // ── Webhook URL form ──
+  const webhookForm = document.querySelector<HTMLFormElement>('#webhook-url-form')
+  const webhookUrlInput = document.querySelector<HTMLInputElement>('#webhook-url')
+  const saveWebhookBtn = document.querySelector<HTMLButtonElement>('#save-webhook')
+
+  if (saveWebhookBtn) saveWebhookBtn.disabled = true
+
+  chrome.storage.sync.get(['webhookUrl'], (result) => {
+    const saved = result['webhookUrl'] as string | undefined
+    if (webhookUrlInput && saved) {
+      webhookUrlInput.value = saved
+      if (saveWebhookBtn) saveWebhookBtn.disabled = !webhookUrlInput.checkValidity()
+    }
+  })
+
+  webhookUrlInput?.addEventListener('input', () => {
+    if (saveWebhookBtn && webhookUrlInput) {
+      saveWebhookBtn.disabled = !webhookUrlInput.checkValidity()
+    }
+  })
+
+  webhookForm?.addEventListener('submit', (e) => {
+    e.preventDefault()
+    const url = webhookUrlInput?.value ?? ''
+    if (url === '') {
+      chrome.storage.sync.set({ webhookUrl: '' }, () => showToast('Webhook URL cleared.', 'success'))
+      return
+    }
+    if (webhookUrlInput && webhookUrlInput.checkValidity()) {
+      requestWebhookPermission(url).then(() => {
+        chrome.storage.sync.set({ webhookUrl: url }, () => showToast('Webhook URL saved.', 'success'))
+      }).catch((err: unknown) => {
+        showToast('Permission required. Click Save again to retry.', 'error')
+        console.error('Webhook permission error:', err)
+      })
+    }
+  })
+
+  // ── Webhook body type ──
+  const simpleRadio = document.querySelector<HTMLInputElement>('#simple-webhook-body')
+  const advancedRadio = document.querySelector<HTMLInputElement>('#advanced-webhook-body')
+
+  chrome.storage.sync.get(['webhookBodyType'], (result) => {
+    const type = (result['webhookBodyType'] as WebhookBodyType | undefined) ?? 'simple'
+    if (simpleRadio && advancedRadio) {
+      if (type === 'advanced') {
+        advancedRadio.checked = true
+      } else {
+        simpleRadio.checked = true
+      }
+      simpleRadio.addEventListener('change', () => chrome.storage.sync.set({ webhookBodyType: 'simple' }))
+      advancedRadio.addEventListener('change', () => chrome.storage.sync.set({ webhookBodyType: 'advanced' }))
+    }
+  })
+}
+
+// ── Version ───────────────────────────────────────────────────────────────────
+
+function initVersion(): void {
+  const versionEl = document.querySelector<HTMLSpanElement>('#version')
+  if (versionEl) versionEl.textContent = `v${chrome.runtime.getManifest().version}`
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  initVersion()
+
+  const initialView = resolveInitialView()
+  activateView(initialView)
+
+  document.querySelectorAll<HTMLButtonElement>('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activateView(btn.dataset['view'] as ViewId)
+    })
+  })
+
+  window.addEventListener('hashchange', () => {
+    activateView(resolveInitialView())
+  })
+
+  initMeetings()
+  initSettings()
 })

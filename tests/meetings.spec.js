@@ -40,14 +40,14 @@ async function seedMeetings(page, meetings) {
 
 test.describe('Meetings page', () => {
   test.beforeEach(async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+    await page.goto(`chrome-extension://${extensionId}/app.html#meetings`);
   });
 
   test('renders expected page structure', async ({ page }) => {
     await expect(page.locator('h1')).toHaveText('Meet Transcripts');
     await expect(page.locator('#last-10-meetings h2')).toHaveText('Last 10 meetings');
     await expect(page.locator('#recover-last-meeting')).toBeVisible();
-    await expect(page.locator('a[href="settings.html"]')).toBeVisible();
+    await expect(page.locator('button[data-view="settings"]')).toBeVisible();
     const headers = page.locator('table thead th');
     await expect(headers.nth(0)).toHaveText('Meeting title');
     await expect(headers.nth(1)).toHaveText('Meeting software');
@@ -56,8 +56,9 @@ test.describe('Meetings page', () => {
   });
 
   test('webhooks config is not present on meetings page (moved to settings)', async ({ page }) => {
-    await expect(page.locator('#webhook-url')).toHaveCount(0);
-    await expect(page.locator('#save-webhook')).toHaveCount(0);
+    // Elements live in the settings view panel which is hidden when meetings view is active
+    await expect(page.locator('#webhook-url')).toBeHidden();
+    await expect(page.locator('#save-webhook')).toBeHidden();
   });
 
   test('shows empty state message when no meetings are stored', async ({ page }) => {

@@ -15,8 +15,7 @@ const SOURCE_FILES = [
   'background.js',
   'platforms/google-meet.js',
   'popup.js',
-  'meetings.js',
-  'settings.js',
+  'app.js',
 ];
 
 async function collectExternalRequests(page, extensionId, url) {
@@ -54,7 +53,7 @@ test.describe('Security', () => {
   test('meetings page makes no external network requests', async ({ page, extensionId }) => {
     const external = await collectExternalRequests(
       page, extensionId,
-      `chrome-extension://${extensionId}/meetings.html`
+      `chrome-extension://${extensionId}/app.html#meetings`
     );
     expect(external, `unexpected external requests: ${external.join(', ')}`).toHaveLength(0);
   });

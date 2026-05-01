@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/extension.js';
 
 test.describe('Settings page', () => {
   test.beforeEach(async ({ page, extensionId }) => {
-    await page.goto(`chrome-extension://${extensionId}/settings.html`);
+    await page.goto(`chrome-extension://${extensionId}/app.html#settings`);
     await page.evaluate(() => new Promise(resolve =>
       chrome.storage.sync.set({
         autoPostWebhookAfterMeeting: true,
@@ -15,7 +15,7 @@ test.describe('Settings page', () => {
   });
 
   test('renders expected page structure', async ({ page }) => {
-    await expect(page.locator('h1')).toHaveText('Settings');
+    await expect(page.locator('button.tab-btn.active')).toHaveText(/Settings/);
     await expect(page.locator('#auto-mode')).toBeVisible();
     await expect(page.locator('#manual-mode')).toBeVisible();
     await expect(page.locator('#auto-download-file')).toBeVisible();
@@ -24,7 +24,7 @@ test.describe('Settings page', () => {
     await expect(page.locator('#save-webhook')).toBeVisible();
     await expect(page.locator('#simple-webhook-body')).toBeVisible();
     await expect(page.locator('#advanced-webhook-body')).toBeVisible();
-    await expect(page.locator('a[href="meetings.html"]')).toBeVisible();
+    await expect(page.locator('button[data-view="meetings"]')).toBeVisible();
   });
 
   test('automation defaults — auto-download and auto-post checked, simple body selected', async ({ page }) => {

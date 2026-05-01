@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meet Transcripts</title>
+  <link rel="stylesheet" href="shared.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <h1>Meet Transcripts</h1>
+      <span class="brand-version" id="version"></span>
+    </div>
+
+    <nav class="tab-nav" role="tablist" aria-label="Main navigation">
+      <button class="tab-btn active" role="tab" aria-selected="true"
+              aria-controls="view-meetings" id="tab-meetings" data-view="meetings">
+        <svg width="13" height="11" viewBox="0 0 13 11" fill="currentColor" aria-hidden="true">
+          <rect x="0" y="0" width="13" height="2" rx="1"/>
+          <rect x="0" y="4.5" width="13" height="2" rx="1"/>
+          <rect x="0" y="9" width="13" height="2" rx="1"/>
+        </svg>
+        Meetings
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false"
+              aria-controls="view-settings" id="tab-settings" data-view="settings">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        Settings
+      </button>
+    </nav>
+  </header>
+
+  <!-- ── Meetings view ── -->
+  <div id="view-meetings" class="view active" role="tabpanel" aria-labelledby="tab-meetings">
+    <main>
+      <section id="last-10-meetings" aria-labelledby="meetings-heading">
+        <div class="section-header">
+          <div>
+            <h2 id="meetings-heading">Last 10 meetings</h2>
+            <p class="sub-text" style="margin-top: 0.2rem;">Only the last 10 meetings are stored. Download or post to a webhook to keep older ones.</p>
+          </div>
+          <button id="recover-last-meeting">Recover last meeting</button>
+        </div>
+
+        <div id="meetings-table-container" style="margin-top: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Meeting title</th>
+                <th scope="col">Meeting software</th>
+                <th scope="col">Meeting start time and duration</th>
+                <th scope="col">Webhook status</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="meetings-table">
+              <!-- Populated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+        <button id="show-all" style="display: none;">Show all</button>
+      </section>
+    </main>
+  </div>
+
+  <!-- ── Settings view ── -->
+  <div id="view-settings" class="view" role="tabpanel" aria-labelledby="tab-settings" hidden>
+    <main>
+      <!-- Capture mode -->
+      <section aria-labelledby="mode-heading">
+        <h2 id="mode-heading">Capture mode</h2>
+        <p class="section-desc">Choose how transcripts are captured across all meetings.</p>
+        <div class="card">
+          <div class="mode-toggle">
+            <div class="mode-option">
+              <label for="auto-mode">
+                <input type="radio" name="mode" id="auto-mode" checked />
+                Auto
+              </label>
+            </div>
+            <div class="mode-option">
+              <label for="manual-mode">
+                <input type="radio" name="mode" id="manual-mode" />
+                Manual
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Automation -->
+      <section aria-labelledby="automation-heading">
+        <h2 id="automation-heading">Automation</h2>
+        <p class="section-desc">Actions taken automatically after each meeting ends.</p>
+        <div class="card">
+          <div class="checkbox-group">
+            <input type="checkbox" id="auto-download-file" checked />
+            <label for="auto-download-file">Automatically download transcript as a text file after each meeting</label>
+          </div>
+          <div class="checkbox-group">
+            <input type="checkbox" id="auto-post-webhook" />
+            <label for="auto-post-webhook">Automatically post transcript to webhook URL after each meeting</label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Webhook -->
+      <section aria-labelledby="webhooks-heading">
+        <h2 id="webhooks-heading">Webhooks</h2>
+        <p class="section-desc">Connect Meet Transcripts to any tool that accepts a webhook POST.</p>
+
+        <div class="card">
+          <form id="webhook-url-form">
+            <label class="field-label" for="webhook-url">Webhook URL</label>
+            <div class="input-group">
+              <input type="url" id="webhook-url" placeholder="https://your-webhook-url.com" />
+              <button id="save-webhook" type="submit">Save</button>
+            </div>
+            <p class="sub-text" style="margin-top: 0.4rem; font-size: 0.8125rem;">Saving will ask for browser permission to send data to this domain.</p>
+          </form>
+
+          <hr />
+
+          <div class="radio-item">
+            <input type="radio" class="body-type-radio" name="webhook-body-type" id="simple-webhook-body" checked />
+            <label for="simple-webhook-body">
+              <b>Simple webhook body</b><br />
+              <span class="sub-text">Pre-formatted data, suitable for no-code integrations</span>
+            </label>
+          </div>
+          <div class="radio-item">
+            <input type="radio" class="body-type-radio" name="webhook-body-type" id="advanced-webhook-body" />
+            <label for="advanced-webhook-body">
+              <b>Advanced webhook body</b><br />
+              <span class="sub-text">Raw data, suitable for code integrations</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Payload reference -->
+      <section aria-labelledby="reference-heading">
+        <h2 id="reference-heading">Payload reference</h2>
+        <p class="section-desc">Request body shapes sent to your webhook endpoint.</p>
+        <div class="card">
+          <details>
+            <summary>Simple body</summary>
+            <div class="code-block">
+              <pre>{
+  "webhookBodyType": "simple",
+  "meetingSoftware": "Google Meet",
+  "meetingTitle": "Team meeting",
+  "meetingStartTimestamp": "01/15/2024, 10:00 AM",
+  "meetingEndTimestamp": "01/15/2024, 11:00 AM",
+  "transcript": "Priya (01/15/2024, 10:00 AM)\nHi everyone!\n\n...",
+  "chatMessages": "Mohammed (01/15/2024, 10:05 AM)\nCan you share slides?\n\n..."
+}</pre>
+            </div>
+          </details>
+          <details>
+            <summary>Advanced body</summary>
+            <div class="code-block">
+              <pre>{
+  "webhookBodyType": "advanced",
+  "meetingSoftware": "Google Meet",
+  "meetingTitle": "Team meeting",
+  "meetingStartTimestamp": "2024-01-15T10:00:00.000Z",
+  "meetingEndTimestamp": "2024-01-15T11:00:00.000Z",
+  "transcript": [
+    {
+      "personName": "Priya",
+      "timestamp": "2024-01-15T10:00:00.000Z",
+      "transcriptText": "Hi everyone!"
+    }
+  ],
+  "chatMessages": [
+    {
+      "personName": "Mohammed",
+      "timestamp": "2024-01-15T10:05:00.000Z",
+      "chatMessageText": "Can you share the slides?"
+    }
+  ]
+}</pre>
+            </div>
+          </details>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast-container" role="region" aria-live="polite" aria-label="Notifications"></div>
+  <script src="app.js"></script>
+</body>
+
+</html>

@@ -70,6 +70,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })
 
+  const openAppBtn = document.querySelector<HTMLButtonElement>('#open-app')
+  openAppBtn?.addEventListener('click', () => {
+    const appUrl = chrome.runtime.getURL('app.html')
+    chrome.tabs.query({ url: appUrl }, (tabs) => {
+      if (tabs.length > 0 && tabs[0]?.id !== undefined) {
+        chrome.tabs.update(tabs[0].id, { active: true })
+        if (tabs[0].windowId !== undefined) {
+          chrome.windows.update(tabs[0].windowId, { focused: true })
+        }
+      } else {
+        chrome.tabs.create({ url: `${appUrl}#meetings` })
+      }
+    })
+  })
+
   const modeDescriptions: Record<OperationMode, string> = {
     auto: 'Captures every meeting automatically',
     manual: 'Manually decide when to start and stop capture',

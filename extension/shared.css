@@ -1,0 +1,155 @@
+/* extension/shared.css — canonical shared styles loaded by popup.html and app.html */
+
+:root {
+  --brand:        #38bdf8;
+  --brand-dim:    rgba(56, 189, 248, 0.12);
+  --brand-border: rgba(56, 189, 248, 0.3);
+  --brand-glow:   rgba(56, 189, 248, 0.4);
+  --rec:          #f87171;
+  --rec-dim:      rgba(248, 113, 113, 0.15);
+  --rec-border:   rgba(248, 113, 113, 0.3);
+  --rec-glow:     rgba(248, 113, 113, 0.4);
+  --text:         #f1f5f9;
+  --text-2:       #94a3b8;
+  --text-3:       #64748b;
+  --glass:        rgba(255, 255, 255, 0.05);
+  --glass-hover:  rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --border:       rgba(255, 255, 255, 0.08);
+  --border-brand: rgba(56, 189, 248, 0.25);
+  --success:      #34d399;
+  --success-bg:   rgba(52, 211, 153, 0.12);
+  --error:        #f87171;
+  --error-bg:     rgba(248, 113, 113, 0.12);
+  --warning:      #fbbf24;
+  --warning-bg:   rgba(251, 191, 36, 0.12);
+  --r-sm:         8px;
+  --r:            12px;
+  --r-lg:         16px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  min-height: 100vh;
+  font-size: 1rem;
+  line-height: 1.6;
+  accent-color: var(--brand);
+  margin: 0;
+}
+
+p { margin: 0; }
+
+a {
+  color: var(--brand);
+  font-weight: 600;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--brand-border);
+}
+a:hover { text-decoration-color: var(--brand); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--brand); }
+
+/* ── Card ── */
+.card {
+  background: var(--glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  padding: 1.25rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* ── Mode toggle ── */
+.mode-toggle {
+  display: flex;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 3px;
+  gap: 3px;
+}
+
+.mode-option { flex: 1; }
+
+.mode-option label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0.4rem 0;
+  border-radius: 5px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.mode-option input[type="radio"] {
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  accent-color: #0d0d1a;
+}
+
+.mode-option:has(input:checked) label {
+  background: var(--brand);
+  color: #0d0d1a;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
+}
+
+.mode-option:has(input:checked) input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Toast system ── */
+#toast-container {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 0.75rem 1rem;
+  border-radius: var(--r);
+  font-size: 0.875rem;
+  font-weight: 500;
+  max-width: 320px;
+  pointer-events: auto;
+  animation: toast-in 0.2s ease;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(0.75rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+
+.toast-success { background: var(--success-bg); color: var(--success); border: 1px solid rgba(52, 211, 153, 0.3); }
+.toast-error   { background: var(--error-bg);   color: var(--error);   border: 1px solid rgba(248, 113, 113, 0.3); }
+.toast-info    { background: var(--brand-dim);  color: var(--brand);   border: 1px solid var(--brand-border); }

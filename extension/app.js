@@ -1,8 +1,5 @@
 (function() {
-	//#region src/pages/meetings/index.ts
-	var NO_MEETINGS = "013";
-	var EMPTY_TRANSCRIPT = "014";
-	var isMeetingsTableExpanded = false;
+	//#region src/pages/app/index.ts
 	function showToast(message, type = "info", duration = 4e3) {
 		const container = document.getElementById("toast-container");
 		if (!container) return;
@@ -48,6 +45,29 @@
 			if (!granted) throw new Error("Permission denied");
 		});
 	}
+	function activateView(viewId) {
+		document.querySelectorAll(".view").forEach((el) => {
+			el.classList.remove("active");
+			el.hidden = true;
+		});
+		document.querySelectorAll(".tab-btn").forEach((btn) => {
+			const isActive = btn.dataset["view"] === viewId;
+			btn.classList.toggle("active", isActive);
+			btn.setAttribute("aria-selected", String(isActive));
+		});
+		const view = document.getElementById(`view-${viewId}`);
+		if (view) {
+			view.hidden = false;
+			view.classList.add("active");
+		}
+		if (location.hash !== `#${viewId}`) history.replaceState(null, "", `#${viewId}`);
+	}
+	function resolveInitialView() {
+		return location.hash.replace("#", "") === "settings" ? "settings" : "meetings";
+	}
+	var NO_MEETINGS = "013";
+	var EMPTY_TRANSCRIPT = "014";
+	var isMeetingsTableExpanded = false;
 	function getDuration(startTimestamp, endTimestamp) {
 		const ms = new Date(endTimestamp).getTime() - new Date(startTimestamp).getTime();
 		const totalMinutes = Math.round(ms / 6e4);
@@ -189,7 +209,7 @@
 			}
 		});
 	}
-	document.addEventListener("DOMContentLoaded", () => {
+	function initMeetings() {
 		const recoverBtn = document.querySelector("#recover-last-meeting");
 		const showAllBtn = document.querySelector("#show-all");
 		loadMeetings();
@@ -223,6 +243,92 @@
 			showAllBtn.setAttribute("style", "display:none;");
 			isMeetingsTableExpanded = true;
 		});
+	}
+	function initSettings() {
+		const autoModeRadio = document.querySelector("#auto-mode");
+		const manualModeRadio = document.querySelector("#manual-mode");
+		chrome.storage.sync.get(["operationMode"], (result) => {
+			const mode = result["operationMode"] ?? "auto";
+			if (autoModeRadio && manualModeRadio) {
+				if (mode === "manual") manualModeRadio.checked = true;
+				else autoModeRadio.checked = true;
+				autoModeRadio.addEventListener("change", () => chrome.storage.sync.set({ operationMode: "auto" }));
+				manualModeRadio.addEventListener("change", () => chrome.storage.sync.set({ operationMode: "manual" }));
+			}
+		});
+		const autoDownloadCheckbox = document.querySelector("#auto-download-file");
+		const autoPostCheckbox = document.querySelector("#auto-post-webhook");
+		chrome.storage.sync.get(["autoDownloadFileAfterMeeting", "autoPostWebhookAfterMeeting"], (result) => {
+			if (autoDownloadCheckbox) {
+				autoDownloadCheckbox.checked = result["autoDownloadFileAfterMeeting"] !== false;
+				autoDownloadCheckbox.addEventListener("change", () => {
+					chrome.storage.sync.set({ autoDownloadFileAfterMeeting: autoDownloadCheckbox.checked });
+				});
+			}
+			if (autoPostCheckbox) {
+				autoPostCheckbox.checked = !!result["autoPostWebhookAfterMeeting"];
+				autoPostCheckbox.addEventListener("change", () => {
+					chrome.storage.sync.set({ autoPostWebhookAfterMeeting: autoPostCheckbox.checked });
+				});
+			}
+		});
+		const webhookForm = document.querySelector("#webhook-url-form");
+		const webhookUrlInput = document.querySelector("#webhook-url");
+		const saveWebhookBtn = document.querySelector("#save-webhook");
+		if (saveWebhookBtn) saveWebhookBtn.disabled = true;
+		chrome.storage.sync.get(["webhookUrl"], (result) => {
+			const saved = result["webhookUrl"];
+			if (webhookUrlInput && saved) {
+				webhookUrlInput.value = saved;
+				if (saveWebhookBtn) saveWebhookBtn.disabled = !webhookUrlInput.checkValidity();
+			}
+		});
+		webhookUrlInput?.addEventListener("input", () => {
+			if (saveWebhookBtn && webhookUrlInput) saveWebhookBtn.disabled = !webhookUrlInput.checkValidity();
+		});
+		webhookForm?.addEventListener("submit", (e) => {
+			e.preventDefault();
+			const url = webhookUrlInput?.value ?? "";
+			if (url === "") {
+				chrome.storage.sync.set({ webhookUrl: "" }, () => showToast("Webhook URL cleared.", "success"));
+				return;
+			}
+			if (webhookUrlInput && webhookUrlInput.checkValidity()) requestWebhookPermission(url).then(() => {
+				chrome.storage.sync.set({ webhookUrl: url }, () => showToast("Webhook URL saved.", "success"));
+			}).catch((err) => {
+				showToast("Permission required. Click Save again to retry.", "error");
+				console.error("Webhook permission error:", err);
+			});
+		});
+		const simpleRadio = document.querySelector("#simple-webhook-body");
+		const advancedRadio = document.querySelector("#advanced-webhook-body");
+		chrome.storage.sync.get(["webhookBodyType"], (result) => {
+			const type = result["webhookBodyType"] ?? "simple";
+			if (simpleRadio && advancedRadio) {
+				if (type === "advanced") advancedRadio.checked = true;
+				else simpleRadio.checked = true;
+				simpleRadio.addEventListener("change", () => chrome.storage.sync.set({ webhookBodyType: "simple" }));
+				advancedRadio.addEventListener("change", () => chrome.storage.sync.set({ webhookBodyType: "advanced" }));
+			}
+		});
+	}
+	function initVersion() {
+		const versionEl = document.querySelector("#version");
+		if (versionEl) versionEl.textContent = `v${chrome.runtime.getManifest().version}`;
+	}
+	document.addEventListener("DOMContentLoaded", () => {
+		initVersion();
+		activateView(resolveInitialView());
+		document.querySelectorAll(".tab-btn").forEach((btn) => {
+			btn.addEventListener("click", () => {
+				activateView(btn.dataset["view"]);
+			});
+		});
+		window.addEventListener("hashchange", () => {
+			activateView(resolveInitialView());
+		});
+		initMeetings();
+		initSettings();
 	});
 	//#endregion
 })();

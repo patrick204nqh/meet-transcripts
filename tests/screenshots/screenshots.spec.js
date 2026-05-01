@@ -62,7 +62,7 @@ const MOCK_MEETINGS = [
 test('@screenshots capture popup screenshot', async ({ page, extensionId }) => {
   await page.setViewportSize({ width: 400, height: 600 });
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
-  await page.waitForSelector('#auto-mode:checked');
+  await page.waitForSelector('.mode-toggle');
   await page.screenshot({
     path: path.join(OUT, 'popup.png'),
     clip: { x: 0, y: 0, width: 400, height: 420 },
@@ -71,7 +71,7 @@ test('@screenshots capture popup screenshot', async ({ page, extensionId }) => {
 
 test('@screenshots capture meetings page — with data', async ({ page, extensionId }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto(`chrome-extension://${extensionId}/meetings.html`);
+  await page.goto(`chrome-extension://${extensionId}/app.html#meetings`);
   await page.waitForLoadState('domcontentloaded');
 
   await page.evaluate((meetings) => {
@@ -90,7 +90,7 @@ test('@screenshots capture meetings page — with data', async ({ page, extensio
 
 test('@screenshots capture settings page screenshot', async ({ page, extensionId }) => {
   await page.setViewportSize({ width: 900, height: 800 });
-  await page.goto(`chrome-extension://${extensionId}/settings.html`);
+  await page.goto(`chrome-extension://${extensionId}/app.html#settings`);
   await page.waitForSelector('#webhook-url');
 
   // Pre-open the payload reference details so they show in the screenshot
