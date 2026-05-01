@@ -110,6 +110,12 @@ a:hover { text-decoration-color: var(--brand); }
   box-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
 }
 
+.mode-option:has(input:checked) input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* ── Toast system ── */
 #toast-container {
   position: fixed;

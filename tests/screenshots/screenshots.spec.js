@@ -62,7 +62,7 @@ const MOCK_MEETINGS = [
 test('@screenshots capture popup screenshot', async ({ page, extensionId }) => {
   await page.setViewportSize({ width: 400, height: 600 });
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
-  await page.waitForSelector('#auto-mode:checked');
+  await page.waitForSelector('.mode-toggle');
   await page.screenshot({
     path: path.join(OUT, 'popup.png'),
     clip: { x: 0, y: 0, width: 400, height: 420 },

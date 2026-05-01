@@ -7,7 +7,6 @@ body {
     radial-gradient(ellipse at 20% 10%, rgba(30, 58, 138, 0.35) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 80%, rgba(56, 189, 248, 0.10) 0%, transparent 50%),
     linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-  background-attachment: fixed;
 }
 
 /* ── App header / tab nav ── */
@@ -323,6 +322,7 @@ input[type="checkbox"] {
   margin-top: 0.2rem;
   cursor: pointer;
   flex-shrink: 0;
+  accent-color: var(--brand);
 }
 
 .checkbox-group label { cursor: pointer; font-size: 0.875rem; color: var(--text-2); }
