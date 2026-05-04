@@ -27,7 +27,7 @@ export class MeetingSession {
   }
 
   async start(): Promise<void> {
-    await this.adapter.waitForMeetingStart()
+    const endButtonEl = await this.adapter.waitForMeetingStart()
     log.info("Meeting started")
 
     chrome.runtime.sendMessage(msg({ type: "new_meeting_started" }), () => {})
@@ -39,7 +39,7 @@ export class MeetingSession {
 
     document.addEventListener("visibilitychange", this.handleVisibilityChange)
     window.addEventListener("pagehide", this.handlePageHide)
-    this.wireEndButton()
+    this.wireEndButton(endButtonEl)
 
     // Wait for the tab to be visible before triggering CC and chat button clicks.
     // Those clicks cause Meet to make fetches through its own service worker, which
@@ -126,12 +126,10 @@ export class MeetingSession {
     }
   }
 
-  private wireEndButton(): void {
+  private wireEndButton(endButtonEl: Element): void {
     try {
-      const endButtonEl = Array.from(document.querySelectorAll(".google-symbols"))
-        .find(el => el.textContent === "call_end")
-      const clickTarget = endButtonEl?.parentElement?.parentElement
-      if (!clickTarget) throw new Error("Call end button not found in DOM")
+      const clickTarget = endButtonEl.parentElement?.parentElement
+      if (!clickTarget) throw new Error("Call end button parent not found in DOM")
       clickTarget.addEventListener("click", () => this.end("user_click"))
     } catch (err) {
       handleContentError("004", err)

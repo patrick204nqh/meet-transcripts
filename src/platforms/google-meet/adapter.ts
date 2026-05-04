@@ -32,15 +32,26 @@ export const GoogleMeetAdapter: IPlatformAdapter = {
   captionContainerSelector: CAPTION_CONTAINER_SELECTOR,
   userNameSelector: USERNAME_SELECTOR,
 
-  waitForMeetingStart: () => waitForElement(MEETING_END_SELECTOR, MEETING_END_TEXT).then(el => el!),
+  waitForMeetingStart: () =>
+    waitForElement(MEETING_END_SELECTOR, MEETING_END_TEXT).then(el => {
+      if (!el) throw new Error("Meeting start element not found in DOM")
+      return el
+    }),
 
-  waitForCaptionsReady: () => waitForElement(CAPTIONS_SELECTOR, CAPTIONS_TEXT).then(el => el!),
+  waitForCaptionsReady: () =>
+    waitForElement(CAPTIONS_SELECTOR, CAPTIONS_TEXT).then(el => {
+      if (!el) throw new Error("Captions button not found in DOM")
+      return el
+    }),
 
   waitForChatContainer: () =>
     waitForElement(CHAT_SELECTOR, CHAT_TEXT).then(() => {
       const chatBtn = selectElements(CHAT_SELECTOR, CHAT_TEXT)[0] as HTMLElement
       chatBtn?.click()
-      return waitForElement(CHAT_LIVE_REGION).then(el => el!)
+      return waitForElement(CHAT_LIVE_REGION).then(el => {
+        if (!el) throw new Error("Chat live region not found in DOM")
+        return el
+      })
     }),
 
   enableCaptions: (captionsElement) => {

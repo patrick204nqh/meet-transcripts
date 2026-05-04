@@ -485,7 +485,7 @@
 			this.handleVisibilityChange = () => this.observerManager.reattachTranscriptIfDisconnected();
 		}
 		async start() {
-			await this.adapter.waitForMeetingStart();
+			const endButtonEl = await this.adapter.waitForMeetingStart();
 			log.info("Meeting started");
 			chrome.runtime.sendMessage(msg({ type: "new_meeting_started" }), () => {});
 			this.state.hasMeetingStarted = true;
@@ -494,7 +494,7 @@
 			this.captureTitle();
 			document.addEventListener("visibilitychange", this.handleVisibilityChange);
 			window.addEventListener("pagehide", this.handlePageHide);
-			this.wireEndButton();
+			this.wireEndButton(endButtonEl);
 			await waitForPageVisible();
 			await Promise.allSettled([this.setupTranscript(), this.setupChat()]);
 		}
@@ -520,7 +520,7 @@
 		async setupTranscript() {
 			try {
 				const captionsReady = await this.adapter.waitForCaptionsReady();
-				const { operationMode } = await new Promise((resolve) => chrome.storage.sync.get(["operationMode"], resolve));
+				const { operationMode } = await chrome.storage.sync.get(["operationMode"]);
 				const isManual = operationMode === "manual";
 				if (isManual) log.info("Manual mode — leaving captions off");
 				else this.adapter.enableCaptions(captionsReady);
@@ -556,10 +556,10 @@
 				handleContentError("003", err);
 			}
 		}
-		wireEndButton() {
+		wireEndButton(endButtonEl) {
 			try {
-				const clickTarget = Array.from(document.querySelectorAll(".google-symbols")).find((el) => el.textContent === "call_end")?.parentElement?.parentElement;
-				if (!clickTarget) throw new Error("Call end button not found in DOM");
+				const clickTarget = endButtonEl.parentElement?.parentElement;
+				if (!clickTarget) throw new Error("Call end button parent not found in DOM");
 				clickTarget.addEventListener("click", () => this.end("user_click"));
 			} catch (err) {
 				handleContentError("004", err);
@@ -594,11 +594,20 @@
 		urlExcludeMatches: ["https://meet.google.com/", "https://meet.google.com/landing"],
 		captionContainerSelector: CAPTION_CONTAINER_SELECTOR,
 		userNameSelector: USERNAME_SELECTOR,
-		waitForMeetingStart: () => waitForElement(MEETING_END_SELECTOR, MEETING_END_TEXT).then((el) => el),
-		waitForCaptionsReady: () => waitForElement(CAPTIONS_SELECTOR, CAPTIONS_TEXT).then((el) => el),
+		waitForMeetingStart: () => waitForElement(MEETING_END_SELECTOR, MEETING_END_TEXT).then((el) => {
+			if (!el) throw new Error("Meeting start element not found in DOM");
+			return el;
+		}),
+		waitForCaptionsReady: () => waitForElement(CAPTIONS_SELECTOR, CAPTIONS_TEXT).then((el) => {
+			if (!el) throw new Error("Captions button not found in DOM");
+			return el;
+		}),
 		waitForChatContainer: () => waitForElement(CHAT_SELECTOR, CHAT_TEXT).then(() => {
 			selectElements(CHAT_SELECTOR, CHAT_TEXT)[0]?.click();
-			return waitForElement(CHAT_LIVE_REGION).then((el) => el);
+			return waitForElement(CHAT_LIVE_REGION).then((el) => {
+				if (!el) throw new Error("Chat live region not found in DOM");
+				return el;
+			});
 		}),
 		enableCaptions: (captionsElement) => {
 			captionsElement.click();
